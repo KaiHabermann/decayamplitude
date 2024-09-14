@@ -34,18 +34,17 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "networkx==3.0.0",
   "jax",
   "jaxlib",
   "numpy",
-  "tqdm",
-  "decayangle"
+  "sympy",
+  "decayangle==1.1.2"
 ]
 
 [project.urls]
-Documentation = "https://kaihabermann.github.io/decayangle/"
-Issues = "https://github.com/KaiHabermann/decayangle/issues"
-Source = "https://github.com/KaiHabermann/decayangle"
+Documentation = "https://kaihabermann.github.io/decayamplitude/"
+Issues = "https://github.com/KaiHabermann/decayamplitude/issues"
+Source = "https://github.com/KaiHabermann/decayamplitude"
 
 [tool.coverage.run]
 branch = true

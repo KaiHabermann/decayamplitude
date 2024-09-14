@@ -1,4 +1,9 @@
 from typing import Union
+from sympy import Rational, Symbol, lambdify
+from sympy.physics.quantum.cg import CG
+from sympy.physics.quantum.spin import Wigner
+import numpy as np
+from functools import cache
 
 class Angular:
     def __init__(self, angular_momentum:int):
@@ -75,3 +80,67 @@ class QN:
         """
         return [QN(j, p) for j in self.angular.couple(other.angular) for p in [self.parity * other.parity]]
 
+
+@cache
+def clebsch_gordan(j1, m1, j2, m2, J, M):
+    """
+    Return clebsch-Gordan coefficient. Note that all arguments should be multiplied by 2
+    (e.g. 1 for spin 1/2, 2 for spin 1 etc.). Needs sympy.
+    """
+
+    cg = (
+        CG(
+            Rational(j1, 2),
+            Rational(m1, 2),
+            Rational(j2, 2),
+            Rational(m2, 2),
+            Rational(J, 2),
+            Rational(M, 2),
+        )
+        .doit()
+        .evalf()
+    )
+    cg = float(cg)
+    if str(cg) == "nan":
+        raise ValueError(f"CG({j1/2},{m1/2},{j2/2},{m2/2},{J/2},{M/2}) is not a number")
+    return cg
+
+
+@cache
+def get_wigner_function(j: int, m1: int, m2: int):
+    """
+    Return Wigner small-d function. Note that all arguments should be multiplied by 2
+    (e.g. 1 for spin 1/2, 2 for spin 1 etc.). Needs sympy.
+    """
+    j, m1, m2 = int(j), int(m1), int(m2)
+    d = Wigner.d(Rational(j, 2), Rational(m1, 2), Rational(m2, 2), x).doit().evalf()
+    d = lambdify(x, d, "numpy")
+    return d
+
+def wigner_small_d(theta, j, m1, m2):
+    """Calculate Wigner small-d function. Needs sympy.
+      theta : angle
+      j : spin (in units of 1/2, e.g. 1 for spin=1/2)
+      m1 and m2 : spin projections (in units of 1/2)
+
+    :param theta:
+    :param j:
+    :param m1: before rotation
+    :param m2: after rotation
+
+    """
+    d_func = get_wigner_function(j, m1, m2)
+    d = d_func(theta)
+    # d = np.array(d)
+    # d[np.isnan(d)] = 0
+    d = np.nan_to_num(d, copy=True, nan=0.0)
+    d = d.astype(np.complex128)
+    return d
+
+
+def wigner_capital_d(phi, theta, psi, j, m1, m2):
+    return (
+        np.exp(-1j * phi * m1 / 2)
+        * wigner_small_d(theta, j, m1, m2)
+        * np.exp(-1j * psi * m2 / 2)
+    )
