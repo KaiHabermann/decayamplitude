@@ -89,16 +89,32 @@ class QN:
         return [QN(j, p) for j in self.angular.couple(other.angular) for p in [self.parity * other.parity]]
     
     @classmethod
-    def generate_L_states(cls, state0: "QN", state1:"QN", state2:"QN"):
+    def generate_L_states(cls, state0: "QN", state1:"QN", state2:"QN")-> list[tuple[QN, QN]]:
         """
         state0 -> state1 + state2
+        S = coupled spins of state 1 and state 2
+        L = angular momentum of the 1-2 system
+        L can be covered by coupling J with state0, since the possible L values arise from coupling J with a series of L values and looking which one can in turn couple to state0 spin. This is in pricinple due to detailed balance.
+
+        params:
+        state0 : QN
+            Quantum numbers of the initial state
+        state1 : QN
+            Quantum numbers of the first final state
+        state2 : QN
+            Quantum numbers of the second final state
+
+        returns:
+        list[tuple[QN, QN]]
+            List of possible (L, S) states
+            Partity is not given, since it is defined by state0
+
         """
-        for J in state1.angular.couple(state1.angular):
-            raise NotImplementedError("This function is not implemented yet")
-
-            
+        for S in state1.angular.couple(state2.angular):
+            for L in S.couple(state0.angular):
+                if L.parity * state1.parity * state2.parity == state0.parity:
+                    yield (L, S)
         
-
 
 @cache
 def clebsch_gordan(j1, m1, j2, m2, J, M):
