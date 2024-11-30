@@ -25,6 +25,12 @@ class Angular:
 
     def value(self):
         return self.angular_momentum / 2
+    
+    @property
+    def parity(self):
+        if self.angular_momentum % 2 != 0:
+            raise ValueError(f"Angular momentum must be even. {self} has no defined parity!")
+        return (-1) ** int(self.value)
 
     def index(self):
         return self.angular_momentum
@@ -81,6 +87,17 @@ class QN:
         Couple two quantum numbers
         """
         return [QN(j, p) for j in self.angular.couple(other.angular) for p in [self.parity * other.parity]]
+    
+    @classmethod
+    def generate_L_states(cls, state0: "QN", state1:"QN", state2:"QN"):
+        """
+        state0 -> state1 + state2
+        """
+        for J in state1.angular.couple(state1.angular):
+            raise NotImplementedError("This function is not implemented yet")
+
+            
+        
 
 
 @cache

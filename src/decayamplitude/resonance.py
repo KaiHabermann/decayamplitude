@@ -34,10 +34,6 @@ class Resonance:
     @id.setter
     def id(self, value:int):
         raise ValueError("The id of a resonance cannot be changed")
-    
-    id.deleter
-    def id(self):
-        raise ValueError("The id of a resonance cannot be deleted")
 
     @classmethod
     def register(cls, obj) -> int:
