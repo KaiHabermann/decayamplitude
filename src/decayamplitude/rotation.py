@@ -1,9 +1,11 @@
 from typing import Union
 from sympy import Rational, Symbol, lambdify
 from sympy.physics.quantum.cg import CG
-from sympy.physics.quantum.spin import Wigner
+from sympy.physics.quantum.spin import Rotation
 import numpy as np
 from functools import cache
+from sympy.abc import x as placeholder
+
 
 class Angular:
     def __init__(self, angular_momentum:int):
@@ -54,9 +56,9 @@ class QN:
         else:
             self.angular = angular_momentum
         if not isinstance(parity, int):
-            raise TypeError("Parity must be an integer")
+            raise TypeError("Parity must be an integer not {}".format(type(parity)))
         if not parity in [-1, 1]:
-            raise ValueError("Parity must be either -1 or 1")
+            raise ValueError("Parity must be either -1 or 1 not {}".format(parity))
         self.parity = parity     
 
     def __str__(self):
@@ -113,8 +115,8 @@ def get_wigner_function(j: int, m1: int, m2: int):
     (e.g. 1 for spin 1/2, 2 for spin 1 etc.). Needs sympy.
     """
     j, m1, m2 = int(j), int(m1), int(m2)
-    d = Wigner.d(Rational(j, 2), Rational(m1, 2), Rational(m2, 2), x).doit().evalf()
-    d = lambdify(x, d, "numpy")
+    d = Rotation.d(Rational(j, 2), Rational(m1, 2), Rational(m2, 2), placeholder).doit().evalf()
+    d = lambdify(placeholder, d, "numpy")
     return d
 
 def wigner_small_d(theta, j, m1, m2):

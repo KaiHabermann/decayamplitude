@@ -4,17 +4,25 @@ from decayamplitude.rotation import QN
 
 class DecayChainNode:
     def __init__(self, tuple_value, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN],helicity_angles:dict, topology:Topology) -> None:
+        # this check needs to happen first to avoid errors
+        if tuple_value not in topology.nodes:
+            if  all(t in topology.nodes for t in tuple_value):
+                # if we are root, the above may be the case
+                self.tuple = 0
+                tuple_value = 0
+            else:
+                raise ValueError(f"Node {tuple_value} not in topology")
+
         self.tuple = tuple_value
         self.resonances = resonances
         self.resonance = resonances.get(tuple_value, None)
         self.topology = topology
         self.final_state_qn = final_state_qn
         self.helicity_angles = helicity_angles
-        if tuple_value not in topology.nodes:
-            raise ValueError(f"Node {tuple_value} not in topology")
+            
         self.node = topology.nodes[tuple_value]
         self.daughters = [
-                    DecayChainNode(daughter.tuple, resonances, helicity_angles, topology)
+                    DecayChainNode(daughter.tuple, resonances, self.final_state_qn, helicity_angles, topology)
                     for daughter in self.node.daughters
             ]
         
@@ -75,18 +83,20 @@ class DecayChainNode:
                 for h2 in d2_helicities:
                     for A_1 in d1.amplitude(h1, lambdas, arguments):
                         for A_2 in d2.amplitude(h2, lambdas, arguments):
-                            yield A_1 * A_2 * self.resonance.amplitude(h0, h1, h2, **arguments)
+                            # TODO: add explicit handling of the arguments for the lineshape
+                            yield A_1 * A_2 * self.resonance.amplitude(h0, h1, h2, arguments)
 
 class DecayChain:
     """
     Class to represent a decay chain. This is a topology in connection with a set of resonances. One resonance for each internal node in the topology.
     """
 
-    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict) -> None:
+    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN]) -> None:
         self.topology = topology
         self.resonances = resonances
         self.momenta = momenta
         self.helicity_angles = topology.helicity_angles(momenta=momenta)
+        self.final_state_qn = final_state_qn
     
     @property
     def nodes(self):
@@ -94,14 +104,15 @@ class DecayChain:
 
     @property
     def root(self):
-        return DecayChainNode(self.topology.root.tuple, self.resonances, self.helicity_angles, self.topology)
+        return DecayChainNode(self.topology.root.tuple, self.resonances, self.final_state_qn, self.helicity_angles, self.topology)
 
     @property
     def chain_function(self):
 
-        def f(lambdas:dict, **kwargs):
+        def f(h0, lambdas:dict, arguments:dict):
             return sum(
                 amplitude
-                for amplitude in self.root.amplitude(lambdas, **kwargs)
+                for amplitude in self.root.amplitude(h0, lambdas, arguments)
             )
-    
+
+        return f
