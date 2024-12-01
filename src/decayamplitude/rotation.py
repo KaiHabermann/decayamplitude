@@ -17,14 +17,22 @@ class Angular:
     def __str__(self):
         return f"J={self.angular_momentum}"
     
+    def __hash__(self) -> int:
+        return hash(self.angular_momentum)
+    
     def __repr__(self):
         return self.__str__()
     
     def __eq__(self, other):
         return self.angular_momentum == other.angular_momentum
 
+    @property
     def value(self):
         return self.angular_momentum / 2
+
+    @property
+    def value2(self):
+        return self.angular_momentum
     
     @property
     def parity(self):
@@ -42,6 +50,8 @@ class Angular:
         return [Angular(i) for i in range(-self.index(), self.index() + 1, 2)]    
     
     def __add__(self, other):
+        if isinstance(other, int):
+            return Angular(self.angular_momentum + other)
         return Angular(self.angular_momentum + other.angular_momentum)
     
     def __sub__(self, other):
@@ -54,6 +64,7 @@ class Angular:
         minimum = abs(self.angular_momentum - other.angular_momentum)
         maximum = self.angular_momentum + other.angular_momentum
         return [Angular(i) for i in range(minimum, maximum + 1, 2)]
+
 
 class QN:
     def __init__(self, angular_momentum:Union[int, Angular], parity: int) -> None:
@@ -89,7 +100,7 @@ class QN:
         return [QN(j, p) for j in self.angular.couple(other.angular) for p in [self.parity * other.parity]]
     
     @classmethod
-    def generate_L_states(cls, state0: "QN", state1:"QN", state2:"QN")-> list[tuple[QN, QN]]:
+    def generate_L_states(cls, state0: "QN", state1:"QN", state2:"QN")-> list[tuple["QN", "QN"]]:
         """
         state0 -> state1 + state2
         S = coupled spins of state 1 and state 2

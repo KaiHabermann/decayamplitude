@@ -16,7 +16,7 @@ def test_threebody_1():
     )
 
     resonances = {
-        (2,3): Resonance(Node(2, 3), 2, -1, lineshape=constant_lineshape, argnames=[]),
+        (2,3): Resonance(Node((2, 3)), 2, -1, lineshape=constant_lineshape, argnames=[]),
         0: Resonance(Node(0), 0, 1, lineshape=constant_lineshape, argnames=[])
 
     }
@@ -37,7 +37,11 @@ def test_threebody_1():
             3: QN(0, 1)
         }
     )
-
-    print(decay.chain_function(0, lambdas={1:0, 2:0, 3:0}, arguments={}))
+    print(resonances)
+    argumentes = {
+        r.id: r.generate_ls_couplings() 
+        for r in resonances.values()
+    }
+    print(decay.chain_function(0, lambdas={1:0, 2:0, 3:0}, arguments=argumentes))
 
 test_threebody_1()

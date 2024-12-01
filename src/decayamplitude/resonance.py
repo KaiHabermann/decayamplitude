@@ -5,6 +5,18 @@ from collections import namedtuple
 
 LSTuple = namedtuple("LSTuple", ["l", "s"])
 
+
+def convert_angular(f):
+    """
+    Wrapper to convert all passed values of type Angular to type int
+    """
+    def wrapped(*args, **kwargs):
+        args = [arg.value2 if isinstance(arg, Angular) else arg for arg in args]
+        kwargs = {key: value.value2 if isinstance(value, Angular) else value for key, value in kwargs.items()}
+        return f(*args, **kwargs)
+    return wrapped
+        
+
 class Resonance:
     __instances = {}
     __parameter_names = {}
@@ -16,6 +28,7 @@ class Resonance:
             self.quantum_numbers = QN(spin, parity)
         else:
             self.quantum_numbers = quantum_numbers
+        print(f"{self.node}: {self.quantum_numbers}")
         self.__daughter_qn = None
         self.__id = Resonance.register(self)
         self.__lineshape = None
@@ -45,33 +58,53 @@ class Resonance:
     @property
     def lineshape(self) -> Callable:
         return self.__lineshape
+
+    @property
+    def tuple(self) -> tuple:
+        return self.node.value
     
     @property
     def daughter_qn(self) -> list[QN]:
         if self.__daughter_qn is None:
-            raise ValueError("Daughter quantum numbers not set! This should happen in the DecayChainNode class. The resonance class should only be used as part of a DecayChain!")
+            raise ValueError(f"{self.node}: Daughter quantum numbers not set! This should happen in the DecayChainNode class. The resonance class should only be used as part of a DecayChain!")
         return self.__daughter_qn
     
     @daughter_qn.setter
     def daughter_qn(self, daughters: list[QN]):
         self.__daughter_qn = daughters
     
-    def helicity_from_ls(self, h0, h1, h2, couplings:dict[LSTuple, float], arguments:dict):
-
+    @convert_angular
+    def helicity_from_ls(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], couplings:dict[LSTuple, float], arguments:dict):
+        """
+        arguments:
+        h0: int
+            Helicity of the resonance
+        h1: int
+            Helicity of the first daughter
+        h2: int
+            Helicity of the second daughter
+        couplings: dict
+            The couplings of the resonance.
+            Format is {(l, s): value}
+        arguments: dict
+            The arguments for the lineshape function. The keys are the names of the arguments.
+        
+        """
         q1, q2 = self.daughter_qn
-        j1, j2 = q1.angular.angular_momentum, q2.angular.angular_momentum
+        j1, j2 = q1.angular.value2, q2.angular.value2
 
         return sum(
             coupling * 
             self.lineshape(l,s,*self.argument_list(arguments)) * 
             (l + 1) ** 0.5 /
-            (self.spin + 1) ** 0.5 *
+            (self.quantum_numbers.angular.value2 + 1) ** 0.5 *
             clebsch_gordan(j1, h1, j2, h2, s, h1- h2) *
             clebsch_gordan(l, 0, s, h1 - h2, self.quantum_numbers.angular.angular_momentum, h1 - h2)
-            for (l, s), coupling in couplings[self.tuple].items()
-        ) (-1) ** ((j2 - h2) / 2)
+            * (-1) ** ((j2 - h2) / 2)
+            for (l, s), coupling in couplings.items()
+        )
 
-    def construct_couplings(self, arguments:dict) -> dict[LSTuple, float]:
+    def __construct_couplings(self, arguments:dict) -> dict[LSTuple, float]:
         """
         TEMPORARY VERSION FINAL SOLUTION NOT YET CLEAR
 
@@ -83,9 +116,28 @@ class Resonance:
         couplings = arguments[self.id]["ls_couplings"]
         return {LSTuple(*key): value for key, value in couplings.items()}
 
+    def generate_ls_couplings(self, conserve_parity:bool = True) -> dict[LSTuple, float]:
+        """
+        This function should be used to generate the couplings for the resonance
+        """
+        print(f"{self.node}: Generating couplings")
+        qn1, qn2 = self.daughter_qn
+        qn0 = self.quantum_numbers
+
+        possible_states = set(QN.generate_L_states(qn0, qn1, qn2))
+        if not conserve_parity:
+            qn0_bar = QN(qn0.angular.angular_momentum, -qn0.parity)
+            possible_states += set(QN.generate_L_states(qn0_bar, qn1, qn2))
+        return {
+            "ls_couplings": {
+                LSTuple(l.value2, s.value2): 1
+                for l, s in possible_states
+            }
+        } 
+
 
     def amplitude(self, h0, h1, h2, arguments:dict):
-        couplings = self.construct_couplings(arguments)
+        couplings = self.__construct_couplings(arguments)
         return self.helicity_from_ls(h0, h1, h2, couplings ,arguments)
     
     def register_lineshape(self, lineshape_function:Callable, parameter_names: list[str]):

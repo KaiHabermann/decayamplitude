@@ -7,9 +7,10 @@ class DecayChainNode:
         # this check needs to happen first to avoid errors
         if tuple_value not in topology.nodes:
             if  all(t in topology.nodes for t in tuple_value):
-                # if we are root, the above may be the case
-                self.tuple = 0
-                tuple_value = 0
+                # if we are root, the above will be the case
+                self.tuple = topology.root.value
+                tuple_value = self.tuple
+                print(f"Root: {self.tuple}")
             else:
                 raise ValueError(f"Node {tuple_value} not in topology")
 
@@ -21,12 +22,16 @@ class DecayChainNode:
         self.helicity_angles = helicity_angles
             
         self.node = topology.nodes[tuple_value]
+        print(f"Node: {self.node}")
         self.daughters = [
                     DecayChainNode(daughter.tuple, resonances, self.final_state_qn, helicity_angles, topology)
                     for daughter in self.node.daughters
             ]
         
         if not self.final_state:
+            print(f"Resonance: {self.resonance}")
+            if self.resonance is None:
+                raise ValueError(f"Resonance for {tuple_value} not found. Every internal node must have a resonance to describe its behaviour!")
             # set the daughters of the resonance
             self.quantum_numbers = self.resonance.quantum_numbers
             self.resonance.daughter_qn = [daughter.quantum_numbers for daughter in self.daughters]
@@ -97,10 +102,14 @@ class DecayChain:
         self.momenta = momenta
         self.helicity_angles = topology.helicity_angles(momenta=momenta)
         self.final_state_qn = final_state_qn
+        self.nodes
     
     @property
     def nodes(self):
-        return list(self.topology.nodes.values())
+        return list(
+            DecayChainNode(node.tuple, self.resonances, self.final_state_qn, self.helicity_angles, self.topology)
+            for node in self.topology.nodes.values()
+        )
 
     @property
     def root(self):
