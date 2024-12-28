@@ -6,6 +6,15 @@ import numpy as np
 from functools import cache
 from sympy.abc import x as placeholder
 
+def convert_angular(f):
+    """
+    Wrapper to convert all passed values of type Angular to type int
+    """
+    def wrapped(*args, **kwargs):
+        args = [arg.value2 if isinstance(arg, Angular) else arg for arg in args]
+        kwargs = {key: value.value2 if isinstance(value, Angular) else value for key, value in kwargs.items()}
+        return f(*args, **kwargs)
+    return wrapped
 
 class Angular:
     def __init__(self, angular_momentum:int):
@@ -43,10 +52,12 @@ class Angular:
     def index(self):
         return self.angular_momentum
 
-    def projections(self):
+    def projections(self, return_int=False):
         """
         Returns the possible projections of the angular momentum
         """
+        if return_int:
+            return [i for i in range(-self.index(), self.index() + 1, 2)]
         return [Angular(i) for i in range(-self.index(), self.index() + 1, 2)]    
     
     def __add__(self, other):
@@ -183,7 +194,7 @@ def wigner_small_d(theta, j, m1, m2):
     d = d.astype(np.complex128)
     return d
 
-
+@convert_angular
 def wigner_capital_d(phi, theta, psi, j, m1, m2):
     return (
         np.exp(-1j * phi * m1 / 2)

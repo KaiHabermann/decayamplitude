@@ -1,21 +1,9 @@
-from decayangle.decay_topology import Node
-from decayamplitude.rotation import QN, Angular, clebsch_gordan
+from decayangle.decay_topology import Node, HelicityAngles
+from decayamplitude.rotation import QN, Angular, clebsch_gordan, wigner_capital_d, convert_angular
 from typing import Union, Callable
 from collections import namedtuple
 
 LSTuple = namedtuple("LSTuple", ["l", "s"])
-
-
-def convert_angular(f):
-    """
-    Wrapper to convert all passed values of type Angular to type int
-    """
-    def wrapped(*args, **kwargs):
-        args = [arg.value2 if isinstance(arg, Angular) else arg for arg in args]
-        kwargs = {key: value.value2 if isinstance(value, Angular) else value for key, value in kwargs.items()}
-        return f(*args, **kwargs)
-    return wrapped
-        
 
 class Resonance:
     __instances = {}
@@ -28,7 +16,6 @@ class Resonance:
             self.quantum_numbers = QN(spin, parity)
         else:
             self.quantum_numbers = quantum_numbers
-        print(f"{self.node}: {self.quantum_numbers}")
         self.__daughter_qn = None
         self.__id = Resonance.register(self)
         self.__lineshape = None
@@ -76,6 +63,14 @@ class Resonance:
     @convert_angular
     def helicity_from_ls(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], couplings:dict[LSTuple, float], arguments:dict):
         """
+        This function translates from the ls basis into the helicity basis.
+        The linehspae funcitons can depend on L and S.
+        It is important, that particle 2 convention from Jacob-Wick is used!
+        Otherwise the direct mapping of LS to helicity does not work.
+
+        Note:
+            Wrapper convert_angular ensures, that inside the function only integes arrive as values for h.
+
         arguments:
         h0: int
             Helicity of the resonance
@@ -98,11 +93,11 @@ class Resonance:
             self.lineshape(l,s,*self.argument_list(arguments)) * 
             (l + 1) ** 0.5 /
             (self.quantum_numbers.angular.value2 + 1) ** 0.5 *
-            clebsch_gordan(j1, h1, j2, h2, s, h1- h2) *
-            clebsch_gordan(l, 0, s, h1 - h2, self.quantum_numbers.angular.angular_momentum, h1 - h2)
-            * (-1) ** ((j2 - h2) / 2)
+            clebsch_gordan(j1, h1, j2, -h2, s, h1- h2) *
+            clebsch_gordan(l, 0, s, h1 - h2, self.quantum_numbers.angular.value2, h1 - h2)
             for (l, s), coupling in couplings.items()
-        )
+        ) * (-1) ** ((j2 - h2) / 2)
+
 
     def __construct_couplings(self, arguments:dict) -> dict[LSTuple, float]:
         """
@@ -120,7 +115,6 @@ class Resonance:
         """
         This function should be used to generate the couplings for the resonance
         """
-        print(f"{self.node}: Generating couplings")
         qn1, qn2 = self.daughter_qn
         qn0 = self.quantum_numbers
 
@@ -135,10 +129,11 @@ class Resonance:
             }
         } 
 
-
-    def amplitude(self, h0, h1, h2, arguments:dict):
+    @convert_angular
+    def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict):
         couplings = self.__construct_couplings(arguments)
-        return self.helicity_from_ls(h0, h1, h2, couplings ,arguments)
+        coupling = self.helicity_from_ls(h0, h1, h2, couplings ,arguments)
+        return coupling 
     
     def register_lineshape(self, lineshape_function:Callable, parameter_names: list[str]):
         if self.__lineshape is not None:
