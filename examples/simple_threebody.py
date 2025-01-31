@@ -4,7 +4,7 @@ from decayamplitude.rotation import QN, Angular
 from decayamplitude.chain import DecayChain
 from decayamplitude.combiner import ChainCombiner
 
-import numpy as np
+from decayamplitude.backend import numpy as np
 
 
 
@@ -164,9 +164,6 @@ def threeBodyAmplitude():
     full_matrix_2 = full.combined_matrix(1, helicity_angles, arguments)
     print(sum(abs(v)**2 for v in full_matrix_1.values()) + 
           sum(abs(v)**2 for v in full_matrix_2.values()))
-
-    # for key, vlaue in full_matrix.items():
-    #     print(key, abs(vlaue))
 
 if __name__ == "__main__":
     threeBodyAmplitude()

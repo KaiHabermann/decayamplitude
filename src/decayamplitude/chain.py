@@ -3,7 +3,7 @@ from typing import Union
 from decayangle.decay_topology import Topology, HelicityAngles, WignerAngles
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN, wigner_capital_d, Angular, convert_angular
-import numpy as np
+from decayamplitude.backend import numpy as np
 
 class DecayChainNode:
     def __init__(self, tuple_value, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN],helicity_angles:dict, topology:Topology, convention:str="helicity") -> None:
@@ -208,9 +208,9 @@ class AlignedChain(DecayChain):
             aligned_matrix = {
                 self.to_tuple(lambdas): sum(
                     matrix[self.to_tuple(lambdas_)]
-                    * np.prod([
+                    * np.prod(np.array([
                             self.wigner_dict[key][(lambdas[key], lambdas_[key])] for key in self.final_state_keys
-                        ], 
+                        ]), 
                         axis=0)
                     for lambdas_ in self.helicities
                 )

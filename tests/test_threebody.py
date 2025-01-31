@@ -1,4 +1,4 @@
-import numpy as np
+from decayamplitude.backend import numpy as np
 import decayamplitude
 from decayamplitude.chain import DecayChain
 from decayamplitude.resonance import Resonance
@@ -15,7 +15,7 @@ def constant_lineshape(*args):
     return 1
 
 def make_four_vectors(phi_rf, theta_rf, psi_rf):
-    import numpy as np
+    from decayamplitude.backend import numpy as np
 
     # Make sure, the sorting is turned off
 
@@ -109,7 +109,7 @@ def test_threebody_1():
         0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[])
     }
 
-    import numpy as np
+    from decayamplitude.backend import numpy as np
     momenta = make_four_vectors(np.linspace(0,np.pi,10), np.linspace(0,np.pi,10), np.linspace(0,np.pi,10))
     momenta = make_four_vectors(0.3, np.arccos(0.4), 0.5)
 

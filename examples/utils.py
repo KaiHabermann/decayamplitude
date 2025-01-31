@@ -5,7 +5,7 @@ def constant_lineshape(*args):
     return 1
 
 def make_four_vectors(phi_rf, theta_rf, psi_rf):
-    import numpy as np
+    from decayamplitude.backend import numpy as np
 
     # Make sure, the sorting is turned off
 
