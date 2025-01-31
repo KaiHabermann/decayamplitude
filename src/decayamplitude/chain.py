@@ -1,4 +1,5 @@
-from typing import Union
+from typing import Union, Optional
+from itertools import product
 
 from decayangle.decay_topology import Topology, HelicityAngles, WignerAngles
 from decayamplitude.resonance import Resonance
@@ -20,7 +21,9 @@ class DecayChainNode:
             self.tuple = tuple_value
             self.__is_root = False
         self.node = topology.nodes[tuple_value]
-        self.resonance = resonances.get(tuple_value, None)
+        self.resonance: Union[Resonance, None] = resonances.get(tuple_value, None)
+        if self.resonance is None and not self.final_state:
+            raise ValueError(f"Resonance for {tuple_value} not found. Every internal node must have a resonance to describe its behaviour!")
         del tuple_value # explicitly delete this value after here
 
         self.resonances = resonances
@@ -171,9 +174,18 @@ class DecayChain:
             }
         
         return matrix
+    
+    def generate_ls_couplings(self):
+        """
+        Returns all LS couplings for the decay chain
+        """
+        return {
+            node.resonance.id: node.resonance.generate_ls_couplings(node.resonance.preserve_partity)
+            for node in self.nodes
+            if not node.final_state
+        }
 
 class AlignedChain(DecayChain):
-    
     def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], reference:Topology | DecayChain, wigner_rotation: dict[tuple, WignerAngles]= None) -> None:
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
         self.topology = topology
@@ -219,6 +231,169 @@ class AlignedChain(DecayChain):
             return aligned_matrix
         
         return f
+    
+class MultiChain(DecayChain):
+    @classmethod
+    def create_chains(cls, resonances: dict[tuple, tuple[Resonance]]) -> list[dict[tuple, Resonance]]:
+        """
+        Creates all possible chains from a dictionary with lists of reonances for each isobar
+        """
+        ordered_keys = sorted(resonances.keys())
+        chains = product(*[resonances[key] for key in ordered_keys])
+        return [
+            {
+                key: chain[i]
+                for i, key in enumerate(ordered_keys)
+            }
+            for chain in chains
+        ]
+
+    @classmethod
+    def from_chains(cls, chains: list[DecayChain]) -> "MultiChain":
+        new_obj = cls(chains[0].topology, chains[0].momenta, chains[0].final_state_qn, chains=chains)
+        if any(chain.topology != chains[0].topology for chain in chains):
+            raise ValueError("All chains must have the same topology")
+
+        return new_obj
+
+    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN], resonances: Optional[dict[tuple, tuple[Resonance]]]=None, chains: Optional[list[DecayChain]]=None) -> None:
+        if chains is not None:
+            self.chains = chains
+        elif resonances is not None:
+            self.chains = [
+                DecayChain(topology, chain_definition, momenta, final_state_qn)
+                for chain_definition in type(self).create_chains(resonances)
+            ]
+        else:
+            raise ValueError("Either resonances or chains must be provided")
+
+    @property
+    def chain_function(self):
+        def f(h0, lambdas:dict, helicity_angles:dict[tuple, HelicityAngles], arguments:dict):
+            return sum(
+                chain.chain_function(h0, lambdas, helicity_angles, arguments)
+                for chain in self.chains
+            )
+        return f
+    
+    @property
+    def final_state_keys(self):
+        return self.chains[0].final_state_keys
+    
+    @property
+    def topology(self):
+        return self.chains[0].topology
+
+    @property
+    def matrix(self):
+        def dict_sum(*dtcs):
+            if len(dtcs) == 1:
+                return dtcs[0]
+            if len(dtcs) == 0:
+                raise ValueError("No dicts to sum")
+            if any(set(dtcs[0].keys()) != set(dtc.keys()) for dtc in dtcs):
+                raise ValueError("Keys of the dicts do not match")
+            return {
+                key: sum(dtc[key] for dtc in dtcs)
+                for key in dtcs[0].keys()
+            }
+
+        def matrix(h0, helicity_angles:dict[tuple, HelicityAngles], arguments:dict):
+            return dict_sum(
+                *[chain.matrix(h0, helicity_angles, arguments)
+                for chain in self.chains]
+            )
+        return matrix
+    
+    @property
+    def root(self):
+        return self.chains[0].root
+    
+    @property
+    def nodes(self):
+        return self.chains[0].nodes
+    
+    @property
+    def helicities(self):
+        return self.chains[0].helicities
+    
+    @property
+    def helicity_tuples(self):
+        return self.chains[0].helicity_tuples
+    
+    def generate_ls_couplings(self):
+        """
+        Returns all LS couplings for the decay chain
+        """
+        coupling_dict = {}
+        for chain in self.chains:
+            coupling_dict.update(chain.generate_ls_couplings())
+        return coupling_dict
+    
+class AlignedMultiChain(MultiChain):
+    @classmethod
+    def from_chains(cls, chains: list[DecayChain], reference:Topology | DecayChain) -> "AlignedMultiChain":
+        return cls(
+            chains[0].topology,
+            chains[0].momenta,
+            chains[0].final_state_qn,
+            reference,
+            chains=chains
+        )
+
+    @classmethod
+    def from_multichain(cls, multichain: MultiChain, reference:Topology | DecayChain) -> "AlignedMultiChain":
+        return cls.from_chains(
+            multichain.chains,
+            reference
+        )
+
+    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN], reference:Topology | DecayChain, resonances: Optional[dict[tuple, tuple[Resonance]]] = None, chains: Optional[list[DecayChain]] = None, wigner_rotation: dict[tuple, WignerAngles]= None) -> None:
+        super().__init__(topology, momenta, final_state_qn, resonances=resonances, chains=chains)
+        self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
+        if wigner_rotation is None:
+            self.wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta)
+        else:
+            self.wigner_rotation = wigner_rotation
+
+        self.wigner_dict = {
+            key: {
+                (h_, h): np.conj(wigner_capital_d(*self.wigner_rotation[key], final_state_qn[key].angular.value2, h, h_))
+                for h in final_state_qn[key].angular.projections(return_int=True)
+                for h_ in final_state_qn[key].angular.projections(return_int=True)
+            }
+            for key in self.final_state_keys
+        }
+
+    def to_tuple(self, lambdas:dict):
+        return tuple([lambdas[key] for key in self.final_state_keys])
+        
+
+    @property
+    def aligned_matrix(self):
+        """
+        Returns a function, which will return the amplitude for a given set of helicities. 
+        The function will use the matrix to perform the calculation.
+        """
+        m = self.matrix
+        def f(h0, helicity_angles:dict[tuple, HelicityAngles], arguments:dict):
+            matrix = m(h0, helicity_angles, arguments)
+            aligned_matrix = {
+                self.to_tuple(lambdas): sum(
+                    matrix[self.to_tuple(lambdas_)]
+                    * np.prod(np.array([
+                            self.wigner_dict[key][(lambdas[key], lambdas_[key])] for key in self.final_state_keys
+                        ]), 
+                        axis=0)
+                    for lambdas_ in self.helicities
+                )
+                for lambdas in self.helicities
+            }
+            return aligned_matrix
+        
+        return f
+
+
 
 
 

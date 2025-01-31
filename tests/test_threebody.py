@@ -248,6 +248,8 @@ def test_threebody_1():
         }
 
     full_amp = add_dict(amp_dict, basis_change(amp_dict2, topology1.relative_wigner_angles(topology2, momenta), final_state_qn))
+    full_amp = add_dict(full_amp, basis_change(amp_dict3, topology1.relative_wigner_angles(topology2, momenta), final_state_qn))
+    full_amp = add_dict(full_amp, amp_dict_dpd)
 
     def unpolarized(dtc):
         return sum(

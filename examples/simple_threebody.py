@@ -1,7 +1,7 @@
 from utils import make_four_vectors, constant_lineshape
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN, Angular
-from decayamplitude.chain import DecayChain
+from decayamplitude.chain import DecayChain, MultiChain
 from decayamplitude.combiner import ChainCombiner
 
 from decayamplitude.backend import numpy as np
@@ -16,23 +16,23 @@ decayangle_config.sorting = "off"
 
 def resonances() -> tuple[dict]:
     resonances1 = {
-        (2,3): Resonance(Node((2, 3)), 0, -1, lineshape=constant_lineshape, argnames=[]),
-        0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[])
+        (2,3): Resonance(Node((2, 3)), quantum_numbers=QN(0, -1), lineshape=constant_lineshape, argnames=[]),
+        0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[], preserve_partity=False)
     }
 
     resonances2 = {
-        (1, 2): Resonance(Node((1, 2)), 3, -1, lineshape=constant_lineshape, argnames=[]),
-        0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[])
+        (1, 2): Resonance(Node((1, 2)), quantum_numbers=QN(3, -1), lineshape=constant_lineshape, argnames=[]),
+        0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[], preserve_partity=False)
     }
 
     resonances3 = {
-        (1, 2): Resonance(Node((1, 2)), 1, -1, lineshape=constant_lineshape, argnames=[]),
-        0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[])
+        (1, 2): Resonance(Node((1, 2)), quantum_numbers=QN(1, -1), lineshape=constant_lineshape, argnames=[]),
+        0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[], preserve_partity=False)
     }
 
     resonances_dpd = {
-        (2,3): Resonance(Node((2, 3)), 4, -1, lineshape=constant_lineshape, argnames=[]),
-        0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[])
+        (2,3): Resonance(Node((2, 3)), quantum_numbers=QN(4, -1), lineshape=constant_lineshape, argnames=[]),
+        0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[], preserve_partity=False)
     }
 
     return resonances1, resonances2, resonances3, resonances_dpd
@@ -164,6 +164,90 @@ def threeBodyAmplitude():
     full_matrix_2 = full.combined_matrix(1, helicity_angles, arguments)
     print(sum(abs(v)**2 for v in full_matrix_1.values()) + 
           sum(abs(v)**2 for v in full_matrix_2.values()))
+    
+
+    # Advantage of this setup is, that we only have one alignment step per topology
+    ch1 = MultiChain.from_chains([decay, decay_dpd])
+    ch2 = MultiChain.from_chains([decay2, decay3])
+    full_multi = ChainCombiner([ch1, ch2])
+    full_matrix_multi_1 = full_multi.combined_matrix(-1, helicity_angles, arguments)
+    full_matrix_multi_2 = full_multi.combined_matrix(1, helicity_angles, arguments)
+    print(sum(abs(v)**2 for v in full_matrix_multi_1.values()) + 
+          sum(abs(v)**2 for v in full_matrix_multi_2.values())
+    )
+
+
+def shortThreeBodyAmplitude():
+    """
+    We can also combine the chains in a shorter way, by using the MultiChain class
+    """
+    final_state_qn = {
+            1: QN(1, 1),
+            2: QN(2, 1),
+            3: QN(0, 1)
+        }
+    resonances1, resonances2, resonances3, resonances_dpd = resonances()
+    momenta = make_four_vectors(1,2,np.linspace(0,np.pi,10))
+    topology1 = Topology(
+        0,
+        decay_topology=((2,3), 1)
+    )
+    topology2 = Topology(
+        0,
+        decay_topology=((1, 2), 3)
+    )
+
+    chain1 = MultiChain.from_chains([
+        DecayChain(
+            topology = topology1,
+            resonances = resonances1,
+            momenta = momenta,
+            final_state_qn = final_state_qn
+        ),
+        DecayChain(
+            topology = topology1,
+            resonances = resonances_dpd,
+            momenta = momenta,
+            final_state_qn = final_state_qn
+        )
+    ])
+
+    chain2 = MultiChain.from_chains([
+        DecayChain(
+            topology = topology2,
+            resonances = resonances2,
+            momenta = momenta,
+            final_state_qn = final_state_qn,
+        ),
+        DecayChain(
+            topology = topology2,
+            resonances = resonances3,
+            momenta = momenta,
+            final_state_qn = final_state_qn
+        )
+    ])
+
+    full = ChainCombiner([chain1, chain2])
+    helicity_angles = topology1.helicity_angles(momenta)
+    helicity_angles.update(topology2.helicity_angles(momenta))
+
+    arguments = full.generate_ls_couplings()
+    print(arguments)
+
+    matrix1 = full.combined_matrix(-1, helicity_angles, arguments)
+    matrix2 = full.combined_matrix(1, helicity_angles, arguments)
+    print(sum(abs(v)**2 for v in matrix1.values()) + 
+          sum(abs(v)**2 for v in matrix2.values())
+    )
+
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     threeBodyAmplitude()
+    shortThreeBodyAmplitude()

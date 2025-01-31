@@ -1,4 +1,4 @@
-from decayamplitude.chain import DecayChain, AlignedChain
+from decayamplitude.chain import DecayChain, AlignedChain, MultiChain, AlignedMultiChain
 from decayangle.decay_topology import Topology, HelicityAngles
 
 
@@ -9,17 +9,21 @@ class ChainCombiner:
     All other chains will be transformed into the reference basis.
     """
 
-    def __init__(self, chains: list[DecayChain]) -> None:
+    def __init__(self, chains: list[DecayChain | MultiChain]) -> None:
         self.chains = chains
         self.reference = chains[0]
         self.aligned_chains = [
-            AlignedChain(
-                chain.topology,
-                chain.resonances,
-                chain.momenta,
-                chain.final_state_qn,
+            AlignedMultiChain.from_multichain(
+                chain,
                 self.reference
-            )
+            ) if isinstance(chain, MultiChain) else 
+                AlignedChain(
+                    chain.topology,
+                    chain.resonances,
+                    chain.momenta,
+                    chain.final_state_qn,
+                    self.reference
+                )
             for chain in chains[1:]
         ]
 
@@ -56,3 +60,12 @@ class ChainCombiner:
                 for key in matrices[0].keys()
             }
         return matrix
+    
+    def generate_ls_couplings(self):
+        """
+        Generates the couplings for the ls basis.
+        """
+        couplings = {}
+        for chain in self.chains:
+            couplings.update(chain.generate_ls_couplings())
+        return couplings

@@ -7,9 +7,11 @@ LSTuple = namedtuple("LSTuple", ["l", "s"])
 
 class Resonance:
     __instances = {}
+    __named_instances = {}
     __parameter_names = {}
-    def __init__(self, node:Node, spin:Union[Angular, int] = None, parity:int = None, quantum_numbers:QN = None, lineshape = None, argnames = None) -> None:
+    def __init__(self, node:Node, spin:Union[Angular, int] = None, parity:int = None, quantum_numbers:QN = None, lineshape = None, argnames = None, name = None, preserve_partity=True) -> None:
         self.node = node
+        self.preserve_partity = preserve_partity
         if quantum_numbers is None:
             if spin is None or parity is None:
                 raise ValueError("Either quantum numbers or spin and parity must be provided")
@@ -17,8 +19,14 @@ class Resonance:
         else:
             self.quantum_numbers = quantum_numbers
         self.__daughter_qn = None
-        self.__id = Resonance.register(self)
         self.__lineshape = None
+        if name is not None:
+            self.__name = name
+        else: 
+            # we explicitly want to differentiate resonances with and without name
+            self.__name = None
+        self.__id = Resonance.register(self)
+
         if lineshape is not None:
             if argnames is None:
                 raise ValueError("If a lineshape is provided, the argument names must be provided as well")
@@ -26,7 +34,11 @@ class Resonance:
                 
     def argument_list(self, arguments:dict) -> list:
         return [arguments[name] for name in self.__parameter_names]
-    
+
+    @property
+    def name(self) -> Union[str, None]:
+        return self.__name
+
     @property
     def id(self) -> int:
         return self.__id
@@ -39,8 +51,14 @@ class Resonance:
     def register(cls, obj) -> int:
         instance_id = len(cls.__instances)
         cls.__instances[instance_id] = obj
-        return instance_id
+        if obj.name is not None:
+            if not obj.name in cls.__named_instances:
+                # We have multiple resonances with the same name, we assume that they share a parameter set 
+                # and thus we only need to register the name once
+                # The parameter set is only for the lineshape and not for the couplings
+                cls.__named_instances[obj.name] = obj
 
+        return instance_id
 
     @property
     def lineshape(self) -> Callable:
@@ -121,13 +139,13 @@ class Resonance:
         possible_states = set(QN.generate_L_states(qn0, qn1, qn2))
         if not conserve_parity:
             qn0_bar = QN(qn0.angular.angular_momentum, -qn0.parity)
-            possible_states += set(QN.generate_L_states(qn0_bar, qn1, qn2))
+            possible_states.union(set(QN.generate_L_states(qn0_bar, qn1, qn2)))
         return {
-            "ls_couplings": {
-                LSTuple(l.value2, s.value2): 1
-                for l, s in possible_states
-            }
-        } 
+                "ls_couplings": {
+                    LSTuple(l.value2, s.value2): 1
+                    for l, s in possible_states
+                }
+            } 
 
     @convert_angular
     def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict):
