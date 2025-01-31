@@ -186,7 +186,7 @@ class AlignedChain(DecayChain):
         # we want the tuple versions of the helicities, since we use them as tuples
         self.wigner_dict = {
             key: {
-                (h, h_): np.conj(wigner_capital_d(*self.wigner_rotation[key], final_state_qn[key].angular.value2, h, h_))
+                (h_, h): np.conj(wigner_capital_d(*self.wigner_rotation[key], final_state_qn[key].angular.value2, h, h_))
                 for h in final_state_qn[key].angular.projections(return_int=True)
                 for h_ in final_state_qn[key].angular.projections(return_int=True)
             }
