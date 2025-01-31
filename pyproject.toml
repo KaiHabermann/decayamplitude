@@ -19,8 +19,7 @@ requires-python = ">=3.8"
 license = "MIT"
 keywords = []
 authors = [
-  { name = "Kai Habermann", email = "kai.sebastian.habermann@cern.ch" },
-  { name = "Mikhail Mikhasenko", email = "mikhail.mikhasenko@cern.ch"},
+  { name = "Kai Habermann", email = "kai.sebastian.habermann@cern.ch" }
 ]
 classifiers = [
   "Development Status :: 4 - Beta",

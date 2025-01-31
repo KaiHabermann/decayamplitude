@@ -111,7 +111,7 @@ def test_threebody_1():
 
     from decayamplitude.backend import numpy as np
     momenta = make_four_vectors(np.linspace(0,np.pi,10), np.linspace(0,np.pi,10), np.linspace(0,np.pi,10))
-    momenta = make_four_vectors(0.3, np.arccos(0.4), 0.5)
+    # momenta = make_four_vectors(0.3, np.arccos(0.4), 0.5)
 
 
     final_state_qn = {
@@ -232,9 +232,9 @@ def test_threebody_1():
             l0, l1, l2, l3 = key
             new_dtc[key] = sum(
                 dtc[(l0, l1_, l2_, l3_)]
-                * np.conj(wigner_capital_d(*(rotation[1]), final_state_qn[1].angular.value2, l1, l1_))
-                * np.conj(wigner_capital_d(*(rotation[2]), final_state_qn[2].angular.value2, l2, l2_))
-                * np.conj(wigner_capital_d(*(rotation[3]), final_state_qn[3].angular.value2, l3, l3_))
+                * np.conj(wigner_capital_d(*(rotation[1]), final_state_qn[1].angular.value2, l1_, l1))
+                * np.conj(wigner_capital_d(*(rotation[2]), final_state_qn[2].angular.value2, l2_, l2))
+                * np.conj(wigner_capital_d(*(rotation[3]), final_state_qn[3].angular.value2, l3_, l3))
                 for l1_ in final_state_qn[1].angular.projections(True)
                 for l2_ in final_state_qn[2].angular.projections(True)
                 for l3_ in final_state_qn[3].angular.projections(True)
@@ -247,7 +247,7 @@ def test_threebody_1():
             for key, value in dtc.items()
         }
 
-    full_amp = add_dict(amp_dict, basis_change(amp_dict2, topology2.relative_wigner_angles(topology1, momenta), final_state_qn))
+    full_amp = add_dict(amp_dict, basis_change(amp_dict2, topology1.relative_wigner_angles(topology2, momenta), final_state_qn))
 
     def unpolarized(dtc):
         return sum(
@@ -257,10 +257,12 @@ def test_threebody_1():
 
     dpd_value = decay_dpd.chain_function(-1, lambdas={1:1, 2:2,3:0}, helicity_angles=topology1.helicity_angles(momenta), arguments=arguments_dpd)
     print(dpd_value/2**0.5)
-
+    
     # this is a reference value copied from the output of the decayangle code
     # We can use this to harden against mistakes in the decayamplitude code
     print((-0.14315554700441074 + 0.12414558894503328j))
+
+    print(unpolarized(full_amp))
 
 
 if __name__ == "__main__":
