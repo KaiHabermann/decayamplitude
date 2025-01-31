@@ -77,8 +77,6 @@ def make_four_vectors(phi_rf, theta_rf, psi_rf):
     momenta_23_rotated = tree1.root.transform(rotation, momenta)
     return momenta_23_rotated
 
-
-
 def test_threebody_1():
     decayangle_config.sorting = "off" 
     topology1 = Topology(
@@ -259,7 +257,11 @@ def test_threebody_1():
 
     dpd_value = decay_dpd.chain_function(-1, lambdas={1:1, 2:2,3:0}, helicity_angles=topology1.helicity_angles(momenta), arguments=arguments_dpd)
     print(dpd_value/2**0.5)
+
+    # this is a reference value copied from the output of the decayangle code
+    # We can use this to harden against mistakes in the decayamplitude code
     print((-0.14315554700441074 + 0.12414558894503328j))
 
 
-test_threebody_1()
+if __name__ == "__main__":
+    test_threebody_1()

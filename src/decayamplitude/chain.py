@@ -1,6 +1,6 @@
 from typing import Union
 
-from decayangle.decay_topology import Topology, HelicityAngles
+from decayangle.decay_topology import Topology, HelicityAngles, WignerAngles
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN, wigner_capital_d, Angular, convert_angular
 import numpy as np
@@ -95,11 +95,11 @@ class DecayChainNode:
             if d1.final_state:
                 d1_helicities = [lambdas[d1.tuple]]
             else:
-                d1_helicities = d1.quantum_numbers.angular.projections(return_int=True)
+                d1_helicities = d1.quantum_numbers.projections(return_int=True)
             if d2.final_state:
                 d2_helicities = [lambdas[d2.tuple]]
             else:
-                d2_helicities = d2.quantum_numbers.angular.projections(return_int=True)
+                d2_helicities = d2.quantum_numbers.projections(return_int=True)
 
             for h1 in d1_helicities:
                 for h2 in d2_helicities:
@@ -121,6 +121,15 @@ class DecayChain:
         self.helicity_angles = topology.helicity_angles(momenta=momenta)
         self.final_state_qn = final_state_qn
         self.nodes
+
+        # we need a sorted version of the particle keys to map matrix elements to the correct particle helicities later
+        self.final_state_keys = sorted(final_state_qn.keys())
+        helicities = Angular.generate_helicities(*[final_state_qn[key] for key in self.final_state_keys])
+        self.helicities = [
+            {key: helicity[i] for i, key in enumerate(self.final_state_keys)}
+            for helicity in helicities
+        ]
+        self.helicity_tuples = helicities
     
     @property
     def nodes(self):
@@ -146,3 +155,70 @@ class DecayChain:
             )
 
         return f
+    
+    @property
+    def matrix(self):
+        """
+        Returns a function, which will not produce the chain function for a single set of helicities, but will rather return a matrix with all possible helicities. 
+        The matrix will be an actual matrix and not a dict, since we want to use it later to perform matrix operations.
+        """
+
+        f = self.chain_function
+        def matrix(h0, helicity_angles:dict[tuple, HelicityAngles], arguments:dict):
+            return {
+                tuple([lambdas[key] for key in self.final_state_keys]): f(h0, lambdas, helicity_angles, arguments)
+                for lambdas in self.helicities
+            }
+        
+        return matrix
+
+class AlignedChain(DecayChain):
+    
+    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], reference:Topology | DecayChain, wigner_rotation: dict[tuple, WignerAngles]= None) -> None:
+        self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
+        self.topology = topology
+        if wigner_rotation is None:
+            self.wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta)
+        else:
+            self.wigner_rotation = wigner_rotation
+
+        super().__init__(topology, resonances, momenta, final_state_qn)
+        # we want the tuple versions of the helicities, since we use them as tuples
+        self.wigner_dict = {
+            key: {
+                (h, h_): np.conj(wigner_capital_d(*self.wigner_rotation[key], final_state_qn[key].angular.value2, h, h_))
+                for h in final_state_qn[key].angular.projections(return_int=True)
+                for h_ in final_state_qn[key].angular.projections(return_int=True)
+            }
+            for key in self.final_state_keys
+        }
+
+    def to_tuple(self, lambdas:dict):
+        return tuple([lambdas[key] for key in self.final_state_keys])
+
+    @property
+    def aligned_matrix(self):
+        """
+        Returns a function, which will return the amplitude for a given set of helicities. 
+        The function will use the matrix to perform the calculation.
+        """
+        m = self.matrix
+        def f(h0, helicity_angles:dict[tuple, HelicityAngles], arguments:dict):
+            matrix = m(h0, helicity_angles, arguments)
+            aligned_matrix = {
+                self.to_tuple(lambdas): sum(
+                    matrix[self.to_tuple(lambdas_)]
+                    * np.prod([
+                            self.wigner_dict[key][(lambdas[key], lambdas_[key])] for key in self.final_state_keys
+                        ], 
+                        axis=0)
+                    for lambdas_ in self.helicities
+                )
+                for lambdas in self.helicities
+            }
+            return aligned_matrix
+        
+        return f
+
+
+

@@ -5,6 +5,7 @@ from sympy.physics.quantum.spin import Rotation
 import numpy as np
 from functools import cache
 from sympy.abc import x as placeholder
+from itertools import product
 
 def convert_angular(f):
     """
@@ -17,6 +18,15 @@ def convert_angular(f):
     return wrapped
 
 class Angular:
+
+    @classmethod
+    def generate_helicities(cls, *angular_momenta:list["Angular"]) -> list[tuple[int]]:
+        """
+        Generate all possible helicities for a given set of angular momenta
+        """
+        return list(product(*[angular.projections(return_int=True) for angular in angular_momenta]))
+
+
     def __init__(self, angular_momentum:int):
         if not isinstance(angular_momentum, int):
             raise TypeError("Angular momentum must be an integer")
@@ -75,6 +85,7 @@ class Angular:
         minimum = abs(self.angular_momentum - other.angular_momentum)
         maximum = self.angular_momentum + other.angular_momentum
         return [Angular(i) for i in range(minimum, maximum + 1, 2)]
+
 
 
 class QN:
@@ -136,6 +147,9 @@ class QN:
             for L in S.couple(state0.angular):
                 if L.parity * state1.parity * state2.parity == state0.parity:
                     yield (L, S)
+    
+    def projections(self, return_int=False):
+        return self.angular.projections(return_int=return_int)
         
 
 @cache
