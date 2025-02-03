@@ -9,6 +9,11 @@ class Resonance:
     __instances = {}
     __named_instances = {}
     __parameter_names = {}
+
+    @classmethod
+    def get_instance(cls, id:int):
+        return cls.__instances[id]
+
     def __init__(self, node:Node, spin:Union[Angular, int] = None, parity:int = None, quantum_numbers:QN = None, lineshape = None, argnames = None, name = None, preserve_partity=True) -> None:
         self.node = node
         self.preserve_partity = preserve_partity
@@ -31,6 +36,12 @@ class Resonance:
             if argnames is None:
                 raise ValueError("If a lineshape is provided, the argument names must be provided as well")
             self.register_lineshape(lineshape, argnames)
+            self.__lineshape = lineshape
+            self.__parameter_names = argnames
+
+    @property
+    def parameter_names(self) -> list[str]:
+        return self.__parameter_names
                 
     def argument_list(self, arguments:dict) -> list:
         return [arguments[name] for name in self.__parameter_names]
@@ -150,6 +161,7 @@ class Resonance:
     @convert_angular
     def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict):
         couplings = self.__construct_couplings(arguments)
+        # lineshape_args = self.__construct_arguments(arguments)
         coupling = self.helicity_from_ls(h0, h1, h2, couplings ,arguments)
         return coupling 
     

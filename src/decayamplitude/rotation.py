@@ -108,6 +108,9 @@ class QN:
 
     def __eq__(self, other):
         return self.angular == other.angular and self.parity == other.parity
+    
+    def __neq__(self, other):
+        return not self == other
 
     def __add__(self, other):
         return QN(self.angular + other.angular, self.parity * other.parity)

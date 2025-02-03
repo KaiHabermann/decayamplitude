@@ -147,12 +147,9 @@ def threeBodyAmplitude():
     arguments.update(arguments3)
     arguments.update(arguments_dpd)
 
-    helicity_angles = topology1.helicity_angles(momenta)
-    helicity_angles.update(topology2.helicity_angles(momenta))
-
 
     full = ChainCombiner([decay, decay2, decay3, decay_dpd])
-    print(full.combined_function(0, {1:1, 2:0, 3:0}, helicity_angles ,arguments))
+    print(full.combined_function(0, {1:1, 2:0, 3:0} ,arguments))
 
     all_helicities = Angular.generate_helicities(*[final_state_qn[key].angular for key in final_state_qn.keys()])
     all_helicities = [
@@ -160,8 +157,8 @@ def threeBodyAmplitude():
         for helicity in all_helicities
     ]
 
-    full_matrix_1 = full.combined_matrix(-1, helicity_angles, arguments)
-    full_matrix_2 = full.combined_matrix(1, helicity_angles, arguments)
+    full_matrix_1 = full.combined_matrix(-1, arguments)
+    full_matrix_2 = full.combined_matrix(1, arguments)
     print(sum(abs(v)**2 for v in full_matrix_1.values()) + 
           sum(abs(v)**2 for v in full_matrix_2.values()))
     
@@ -170,8 +167,8 @@ def threeBodyAmplitude():
     ch1 = MultiChain.from_chains([decay, decay_dpd])
     ch2 = MultiChain.from_chains([decay2, decay3])
     full_multi = ChainCombiner([ch1, ch2])
-    full_matrix_multi_1 = full_multi.combined_matrix(-1, helicity_angles, arguments)
-    full_matrix_multi_2 = full_multi.combined_matrix(1, helicity_angles, arguments)
+    full_matrix_multi_1 = full_multi.combined_matrix(-1, arguments)
+    full_matrix_multi_2 = full_multi.combined_matrix(1, arguments)
     print(sum(abs(v)**2 for v in full_matrix_multi_1.values()) + 
           sum(abs(v)**2 for v in full_matrix_multi_2.values())
     )
@@ -228,17 +225,23 @@ def shortThreeBodyAmplitude():
     ])
 
     full = ChainCombiner([chain1, chain2])
-    helicity_angles = topology1.helicity_angles(momenta)
-    helicity_angles.update(topology2.helicity_angles(momenta))
 
     arguments = full.generate_ls_couplings()
-    print(arguments)
 
-    matrix1 = full.combined_matrix(-1, helicity_angles, arguments)
-    matrix2 = full.combined_matrix(1, helicity_angles, arguments)
+    matrix1 = full.combined_matrix(-1, arguments)
+    matrix2 = full.combined_matrix(1, arguments)
     print(sum(abs(v)**2 for v in matrix1.values()) + 
           sum(abs(v)**2 for v in matrix2.values())
     )
+    unpolarized, argnames = full.unpolarized_amplitude(full.generate_ls_couplings())
+    print(argnames)
+    print(unpolarized(*([1] * len(argnames))))
+    # print((**arguments))
+
+
+    # for resonance, parameters in arguments.items():
+    #     print(resonance)
+    #     print(parameters)
 
 
 

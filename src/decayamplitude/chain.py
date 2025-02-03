@@ -1,5 +1,6 @@
 from typing import Union, Optional
 from itertools import product
+from functools import cached_property
 
 from decayangle.decay_topology import Topology, HelicityAngles, WignerAngles
 from decayamplitude.resonance import Resonance
@@ -7,7 +8,7 @@ from decayamplitude.rotation import QN, wigner_capital_d, Angular, convert_angul
 from decayamplitude.backend import numpy as np
 
 class DecayChainNode:
-    def __init__(self, tuple_value, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN],helicity_angles:dict, topology:Topology, convention:str="helicity") -> None:
+    def __init__(self, tuple_value, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN], topology:Topology, convention:str="helicity") -> None:
         # this check needs to happen first to avoid errors
         if tuple_value not in topology.nodes:
             if  all(t in topology.nodes for t in tuple_value):
@@ -29,11 +30,10 @@ class DecayChainNode:
         self.resonances = resonances
         self.topology = topology
         self.final_state_qn = final_state_qn
-        self.helicity_angles = helicity_angles
         self.convention = convention
             
         self.daughters = [
-                    DecayChainNode(daughter.tuple, resonances, self.final_state_qn, helicity_angles, topology)
+                    DecayChainNode(daughter.tuple, resonances, self.final_state_qn, topology)
                     for daughter in self.node.daughters
             ]
         
@@ -121,9 +121,14 @@ class DecayChain:
         self.topology = topology
         self.resonances = resonances
         self.momenta = momenta
-        self.helicity_angles = topology.helicity_angles(momenta=momenta)
         self.final_state_qn = final_state_qn
         self.nodes
+
+        self.root_resonance = self.resonances.get(self.topology.root.value)
+        if self.root_resonance is None:
+            self.root_resonance = self.resonances.get(self.topology.root.tuple)
+        if self.root_resonance is None:
+            raise ValueError(f"No root resonance found! The root resonance should be the decaying particle. The lineshape is irrelelevant for decay processes, but the quantum numbers are crucial! Define a root resonance under the key {self.topology.root.value} or {self.topology.root.tuple}.")
 
         # we need a sorted version of the particle keys to map matrix elements to the correct particle helicities later
         self.final_state_keys = sorted(final_state_qn.keys())
@@ -133,25 +138,30 @@ class DecayChain:
             for helicity in helicities
         ]
         self.helicity_tuples = helicities
+        self.resonance_list = list(resonances.values())
     
     @property
     def nodes(self):
         return list(
-            DecayChainNode(node.tuple, self.resonances, self.final_state_qn, self.helicity_angles, self.topology)
+            DecayChainNode(node.tuple, self.resonances, self.final_state_qn, self.topology)
             for node in self.topology.nodes.values()
         )
 
+    @cached_property
+    def helicity_angles(self):
+        return self.topology.helicity_angles(momenta=self.momenta)
+
     @property
     def root(self):
-        return DecayChainNode(self.topology.root.tuple, self.resonances, self.final_state_qn, self.helicity_angles, self.topology)
+        return DecayChainNode(self.topology.root.tuple, self.resonances, self.final_state_qn, self.topology)
 
     @property
     def chain_function(self):
 
-        def f(h0, lambdas:dict, helicity_angles:dict[tuple, HelicityAngles], arguments:dict):
+        def f(h0, lambdas:dict, arguments:dict):
             amplitudes = [
                  amplitude
-                for amplitude in self.root.amplitude(h0, lambdas, helicity_angles, arguments)
+                for amplitude in self.root.amplitude(h0, lambdas, self.helicity_angles, arguments)
             ]
             return sum(
                amplitudes
@@ -167,9 +177,9 @@ class DecayChain:
         """
 
         f = self.chain_function
-        def matrix(h0, helicity_angles:dict[tuple, HelicityAngles], arguments:dict):
+        def matrix(h0, arguments:dict):
             return {
-                tuple([lambdas[key] for key in self.final_state_keys]): f(h0, lambdas, helicity_angles, arguments)
+                tuple([lambdas[key] for key in self.final_state_keys]): f(h0, lambdas, arguments)
                 for lambdas in self.helicities
             }
         
@@ -215,8 +225,8 @@ class AlignedChain(DecayChain):
         The function will use the matrix to perform the calculation.
         """
         m = self.matrix
-        def f(h0, helicity_angles:dict[tuple, HelicityAngles], arguments:dict):
-            matrix = m(h0, helicity_angles, arguments)
+        def f(h0, arguments:dict):
+            matrix = m(h0, arguments)
             aligned_matrix = {
                 self.to_tuple(lambdas): sum(
                     matrix[self.to_tuple(lambdas_)]
@@ -266,15 +276,24 @@ class MultiChain(DecayChain):
             ]
         else:
             raise ValueError("Either resonances or chains must be provided")
+        if chains is not None and resonances is not None:
+            raise ValueError("Either resonances or chains must be provided")
 
     @property
     def chain_function(self):
-        def f(h0, lambdas:dict, helicity_angles:dict[tuple, HelicityAngles], arguments:dict):
+        def f(h0, lambdas:dict, arguments:dict):
             return sum(
-                chain.chain_function(h0, lambdas, helicity_angles, arguments)
+                chain.chain_function(h0, lambdas, arguments)
                 for chain in self.chains
             )
         return f
+    
+    @property
+    def resonance_list(self):
+        return [
+            resonance for chain in self.chains
+            for resonance in chain.resonance_list
+        ]
     
     @property
     def final_state_keys(self):
@@ -298,9 +317,9 @@ class MultiChain(DecayChain):
                 for key in dtcs[0].keys()
             }
 
-        def matrix(h0, helicity_angles:dict[tuple, HelicityAngles], arguments:dict):
+        def matrix(h0, arguments:dict):
             return dict_sum(
-                *[chain.matrix(h0, helicity_angles, arguments)
+                *[chain.matrix(h0, arguments)
                 for chain in self.chains]
             )
         return matrix
@@ -329,6 +348,12 @@ class MultiChain(DecayChain):
         for chain in self.chains:
             coupling_dict.update(chain.generate_ls_couplings())
         return coupling_dict
+    
+    @property
+    def root_resonance(self) -> Union[Resonance, None]:
+        if all(chain.root_resonance.quantum_numbers == self.chains[0].root_resonance.quantum_numbers for chain in self.chains):
+            return self.chains[0].root_resonance
+        return None
     
 class AlignedMultiChain(MultiChain):
     @classmethod
@@ -376,8 +401,8 @@ class AlignedMultiChain(MultiChain):
         The function will use the matrix to perform the calculation.
         """
         m = self.matrix
-        def f(h0, helicity_angles:dict[tuple, HelicityAngles], arguments:dict):
-            matrix = m(h0, helicity_angles, arguments)
+        def f(h0,  arguments:dict):
+            matrix = m(h0, arguments)
             aligned_matrix = {
                 self.to_tuple(lambdas): sum(
                     matrix[self.to_tuple(lambdas_)]

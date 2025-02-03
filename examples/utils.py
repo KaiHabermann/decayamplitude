@@ -1,8 +1,12 @@
 from decayangle.decay_topology import Topology, HelicityAngles, WignerAngles
 from decayangle.lorentz import LorentzTrafo
+from decayamplitude.backend import numpy as np
 
 def constant_lineshape(*args):
     return 1
+
+def BW_lineshape(l,s, m, gamma, m0):
+    return 1 / (m**2 - m0**2 + 1j * m * gamma) 
 
 def make_four_vectors(phi_rf, theta_rf, psi_rf):
     from decayamplitude.backend import numpy as np
