@@ -24,6 +24,33 @@ pip install decayamplitude
 
 The software project `decayamplitude` provides an amplitude package working in tandem with `decayangle` to build full cascade reaction amplitudes. 
 
+## Usage
+```python
+# First we define the final state
+final_state_qn = {
+        1: QN(1, 1),
+        2: QN(2, 1),
+        3: QN(0, 1)
+    }
+
+# decayangles Topology class is used to generate the angular variables. Be carefull here, as fit results may depend on the ordering. 
+
+topology1 = Topology(
+    0,
+    decay_topology=((2,3), 1)
+)
+topology2 = Topology(
+    0,
+    decay_topology=((1, 2), 3)
+)
+```
+
+We now have a basic definition of our decay scheme. But we need resonances to react. In general for a multi body decay we want to define a list of resonances for each isobar. Then let the code figure out all the possible decay chains.
+
+```pyton
+
+```
+
 ## Related projects
 
 Amplitude analyses dealing with non-zero spin of final-state particles have to implement wigner rotations in some way.

@@ -248,7 +248,7 @@ class MultiChain(DecayChain):
         """
         Creates all possible chains from a dictionary with lists of reonances for each isobar
         """
-        ordered_keys = sorted(resonances.keys())
+        ordered_keys = list(resonances.keys())
         chains = product(*[resonances[key] for key in ordered_keys])
         return [
             {
@@ -270,6 +270,8 @@ class MultiChain(DecayChain):
         if chains is not None:
             self.chains = chains
         elif resonances is not None:
+            if any(node.value not in resonances and node.tuple not in resonances and not node.final_state for node in topology.nodes.values()):
+                raise ValueError(f"Not all nodes have a resonance assigned: {resonances.keys()}, {topology.nodes.keys()}")
             self.chains = [
                 DecayChain(topology, chain_definition, momenta, final_state_qn)
                 for chain_definition in type(self).create_chains(resonances)

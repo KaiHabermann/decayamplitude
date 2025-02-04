@@ -11,6 +11,8 @@ from decayamplitude.backend import numpy as np
 from decayangle.decay_topology import Topology, Node
 from decayangle.config import config as decayangle_config
 
+from collections import defaultdict
+
 # we want to define our chains by hand, so we need to turn off the automatic sorting
 decayangle_config.sorting = "off" 
 
@@ -224,8 +226,16 @@ def shortThreeBodyAmplitude():
         )
     ])
 
-    full = ChainCombiner([chain1, chain2])
+    merged_resonances = defaultdict(list)
+    for key, resonance in resonances3.items():
+        merged_resonances[key].append(resonance)
+    for key, resonance in resonances2.items():
+        merged_resonances[key].append(resonance)
+    merged_resonances = dict(merged_resonances)
 
+    merged_resonances[0] = [merged_resonances[0][0]]
+
+    full = ChainCombiner([chain1, chain2])
     arguments = full.generate_ls_couplings()
 
     matrix1 = full.combined_matrix(-1, arguments)
@@ -236,12 +246,10 @@ def shortThreeBodyAmplitude():
     unpolarized, argnames = full.unpolarized_amplitude(full.generate_ls_couplings())
     print(argnames)
     print(unpolarized(*([1] * len(argnames))))
-    # print((**arguments))
-
-
-    # for resonance, parameters in arguments.items():
-    #     print(resonance)
-    #     print(parameters)
+    full2 = ChainCombiner([chain1, MultiChain(topology2, momenta=momenta, resonances=merged_resonances, final_state_qn=final_state_qn)])
+    unpolarized, argnames = full2.unpolarized_amplitude(full2.generate_ls_couplings())
+    print(argnames)
+    print(unpolarized(*([1] * len(argnames))))
 
 
 
