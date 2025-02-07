@@ -327,13 +327,7 @@ def shortThreeBodyAmplitudeBW():
 
     full = ChainCombiner([chain1, chain2])
     unpolarized, argnames = full.unpolarized_amplitude(full.generate_ls_couplings())
-    print(argnames)
     print(unpolarized(*([1] * len(argnames))) )
-
-
-
-
-
 
 
 
