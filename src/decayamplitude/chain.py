@@ -146,6 +146,10 @@ class DecayChain:
             DecayChainNode(node.tuple, self.resonances, self.final_state_qn, self.topology)
             for node in self.topology.nodes.values()
         )
+    
+    @property
+    def final_state_nodes(self) -> list[DecayChainNode]:
+        return [node for node in self.nodes if node.final_state]
 
     @cached_property
     def helicity_angles(self):
@@ -194,6 +198,17 @@ class DecayChain:
             for node in self.nodes
             if not node.final_state
         }
+    
+    @property
+    def resonance_params(self):
+        resonances = [resonance for resonance in self.resonance_list]
+        resonance_parameter_names = [name for resonance in resonances for name in resonance.parameter_names]
+
+        if len(set(resonance_parameter_names)) != len(resonance_parameter_names):
+            from collections import Counter
+            c = Counter(resonance_parameter_names)
+            # raise ValueError(f"Parameter names are not unique: {', '.join([name for name, count in c.items() if count > 1])}")
+        return list(set(resonance_parameter_names))
 
 class AlignedChain(DecayChain):
     def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], reference:Topology | DecayChain, wigner_rotation: dict[tuple, WignerAngles]= None) -> None:

@@ -50,7 +50,7 @@ def resonances_BW(momenta) -> tuple[dict]:
     }
 
     resonances2 = {
-        (1, 2): Resonance(nodes_2[(1, 2)], quantum_numbers=QN(3, -1), lineshape=BW_lineshape(nodes_2[(1, 2)].mass(momenta)), argnames=["gamma1", "m01"]),
+        (1, 2): Resonance(nodes_2[(1, 2)], quantum_numbers=QN(3, -1), lineshape=BW_lineshape(nodes_2[(1, 2)].mass(momenta)), argnames=["gamma2", "m01"]),
         0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[], preserve_partity=False)
     }
 
@@ -327,9 +327,17 @@ def shortThreeBodyAmplitudeBW():
 
     full = ChainCombiner([chain1, chain2])
     unpolarized, argnames = full.unpolarized_amplitude(full.generate_ls_couplings())
+    print(argnames)
     print(unpolarized(*([1] * len(argnames))) )
 
+    polarized, lambdas ,polarized_argnames = full.polarized_amplitude(full.generate_ls_couplings())
+    print(lambdas)
+    lambda_values = [1, 1, 0, 0]
+    print(polarized(*lambda_values,*([1] * len(polarized_argnames))) )
 
+    matrx_function, matrix_argnames = full.matrix_function(full.generate_ls_couplings())
+    print(matrix_argnames)
+    print(matrx_function(1, *([1] * len(argnames))) )
 
 
 if __name__ == "__main__":

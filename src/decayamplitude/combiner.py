@@ -1,6 +1,7 @@
 from decayamplitude.chain import DecayChain, AlignedChain, MultiChain, AlignedMultiChain
 from decayangle.decay_topology import Topology
 from typing import Union, Callable
+from decayamplitude.resonance import LSTuple
 
 
 class ChainCombiner:
@@ -51,8 +52,24 @@ class ChainCombiner:
 
         return f
     
+    def polarized_amplitude(self, ls_couplings:dict[int, dict[str: dict[LSTuple, float]]]) -> tuple[Callable, list[str], list[str]]:
+        """
+        Returns a function that combines the amplitudes of all chains
+        """
+        sorted_final_state_nodes = sorted([n.node.value for n in self.reference.final_state_nodes])
+        final_state_lambdas = sorted([f"h_{n}" for n in sorted_final_state_nodes]) 
+        def fun(arguments:dict):
+            # build lambda dict, as it is used internally from plain parameters
+            h0 = arguments.pop("h0")
+            lambdas = {n: arguments.pop(k) for k, n  in zip(final_state_lambdas, sorted_final_state_nodes)}
+            return self.combined_function(h0, lambdas, arguments)
+        polarized, argnames = self.__create_function(["h0", *final_state_lambdas] + self.resonance_params, ls_couplings, fun)
+
+        return polarized, ["h0", *final_state_lambdas], argnames[len(final_state_lambdas)+1:]
+
+    
     @property
-    def combined_matrix(self):
+    def combined_matrix(self) -> Callable:
         """
         Returns a function that combines the matrices of all chains.
         The final matrix will be a sum of all matrices, where the alignment is already performed.
@@ -70,6 +87,18 @@ class ChainCombiner:
             }
         return matrix
     
+    def matrix_function(self, ls_couplings:dict[int, dict[str: dict[LSTuple, float]]]) -> Callable:
+        """
+        Returns a function that combines the matrices of all chains.
+        The final matrix will be a sum of all matrices, where the alignment is already performed.
+        """
+        if "h0" in self.resonance_params:
+            raise ValueError("The parameter name 'h0' is reserved for the helicity quantum number of the mother particle. Please choose another name for the resonance parameter.")
+        def fun(arguments:dict):
+            h0 = arguments["h0"]
+            return self.combined_matrix(h0, arguments)
+        return self.__create_function(["h0"] + self.resonance_params, ls_couplings, fun)
+    
     def generate_ls_couplings(self):
         """
         Generates the couplings for the ls basis.
@@ -79,59 +108,61 @@ class ChainCombiner:
             couplings.update(chain.generate_ls_couplings())
         return couplings
     
-    def unpolarized_amplitude(self, ls_couplings: dict) -> tuple[Callable, list[str]]:
-        import inspect
-        import types
-        if self.root_resonance is None:
-            raise ValueError(f"The root resonance must be the same for all chains! Root = {self.reference.topology.root}.")
-
-        coupling_names = []
-        coupling_structure = {}
-        for resonance_id, coupling_dict in ls_couplings.items():
-            coupling_structure[resonance_id] = {}
-            for key, _ in coupling_dict["ls_couplings"].items():
-                name = f"COUPLING_ID_{resonance_id}_LS_{'_'.join([str(k) for k in key])}"
-                coupling_names.append(name) # we need only define a name 
-                coupling_structure[resonance_id][key] = name
-
-        def create_function(names):
+    def __create_function(self, names:list[set], ls_couplings:dict[int, dict[str: dict[LSTuple, float]]], f):
+            import inspect
+            import types
             # Create a function signature dynamically
             parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in names]
             sig = inspect.Signature(parameters)
-
+            coupling_names = []
+            coupling_structure = {}
+            for resonance_id, coupling_dict in ls_couplings.items():
+                coupling_structure[resonance_id] = {}
+                for key, _ in coupling_dict["ls_couplings"].items():
+                    name = f"COUPLING_ID_{resonance_id}_LS_{'_'.join([str(k) for k in key])}"
+                    coupling_names.append(name) # we need only define a name 
+                    coupling_structure[resonance_id][key] = name
+            full_names = names + coupling_names
             # Define a generic function that accepts *args
             def func(*args, **kwargs):
-                named_map = {name: arg for name, arg in zip(names, args)}
+                named_map = {name: arg for name, arg in zip(full_names, args)}
                 named_map.update(kwargs)
                 couplings = {}
                 for resonance_id, coupling_dict in coupling_structure.items():
                     couplings[resonance_id] = {"ls_couplings":{
                         key: named_map[coupling_dict[key]] for key in coupling_dict
                     }}
-                kwargs = named_map.copy()
-                kwargs.update(couplings)
-
-                return sum(
-                    abs(v)**2 
-                    for h0 in self.root_resonance.quantum_numbers.angular.projections()
-                    for v in self.combined_matrix(h0, kwargs).values()
-                )
+                arguments = named_map.copy()
+                arguments.update(couplings)
+                return f(arguments)
 
             # Assign the generated signature to the function
             func.__signature__ = sig
-            return func
-        
-        resonances = [resonance for chain in self.chains for resonance in chain.resonance_list]
-        resonance_parameter_names = [name for resonance in resonances for name in resonance.parameter_names]
+            return func, full_names
+    
+    @property
+    def resonance_params(self) -> list[str]:
+        resonance_parameter_names = [name for chain in self.chains for name in chain.resonance_params]
 
         if len(set(resonance_parameter_names)) != len(resonance_parameter_names):
             from collections import Counter
             c = Counter(resonance_parameter_names)
-            #raise ValueError(f"Parameter names are not unique: {', '.join([name for name, count in c.items() if count > 1])}")
+            # raise ValueError(f"Parameter names are not unique: {', '.join([name for name, count in c.items() if count > 1])}")
+        return list(set(resonance_parameter_names))
 
-        total_names = coupling_names + list(set(resonance_parameter_names))
-        f = create_function(total_names)
-        return f, total_names
+    def unpolarized_amplitude(self, ls_couplings: dict) -> tuple[Callable, list[str]]:
+
+        if self.root_resonance is None:
+            raise ValueError(f"The root resonance must be the same for all chains! Root = {self.reference.topology.root}.")
+
+        def f(arguments:dict):
+            return sum(
+                    abs(v)**2 
+                    for h0 in self.root_resonance.quantum_numbers.angular.projections()
+                    for v in self.combined_matrix(h0, arguments).values()
+                )
+
+        return self.__create_function(self.resonance_params, ls_couplings, f)
         
 
         
