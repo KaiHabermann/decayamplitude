@@ -119,7 +119,7 @@ class Resonance:
 
         return sum(
             coupling * 
-            self.lineshape(l,s,*self.argument_list(arguments)) * 
+            self.lineshape(l,s, *self.argument_list(arguments)) * 
             (l + 1) ** 0.5 /
             (self.quantum_numbers.angular.value2 + 1) ** 0.5 *
             clebsch_gordan(j1, h1, j2, -h2, s, h1- h2) *

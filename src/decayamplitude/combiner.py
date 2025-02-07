@@ -127,9 +127,9 @@ class ChainCombiner:
         if len(set(resonance_parameter_names)) != len(resonance_parameter_names):
             from collections import Counter
             c = Counter(resonance_parameter_names)
-            raise ValueError(f"Parameter names are not unique: {', '.join([name for name, count in c.items() if count > 1])}")
+            #raise ValueError(f"Parameter names are not unique: {', '.join([name for name, count in c.items() if count > 1])}")
 
-        total_names = coupling_names + resonance_parameter_names
+        total_names = coupling_names + list(set(resonance_parameter_names))
         f = create_function(total_names)
         return f, total_names
         

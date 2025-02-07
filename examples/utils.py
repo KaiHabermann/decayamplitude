@@ -5,8 +5,10 @@ from decayamplitude.backend import numpy as np
 def constant_lineshape(*args):
     return 1
 
-def BW_lineshape(l,s, m, gamma, m0):
-    return 1 / (m**2 - m0**2 + 1j * m * gamma) 
+def BW_lineshape(mass):
+    def BW(l,s, gamma, m0):
+        return 1 / (mass**2 - m0**2 + 1j * mass * gamma) 
+    return BW
 
 def make_four_vectors(phi_rf, theta_rf, psi_rf):
     from decayamplitude.backend import numpy as np

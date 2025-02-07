@@ -215,12 +215,12 @@ def test_threebody_1():
     ]:
         for h0 in [-1, 1]:
             l1, l2, l3 = lambdas[1], lambdas[2], lambdas[3]
-            amp = decay.chain_function(h0, lambdas=lambdas, helicity_angles=topology1.helicity_angles(momenta), arguments=arguments1)
-            amp2 = decay2.chain_function(h0, lambdas=lambdas, helicity_angles=topology2.helicity_angles(momenta), arguments=arguments2)
+            amp = decay.chain_function(h0, lambdas=lambdas, arguments=arguments1)
+            amp2 = decay2.chain_function(h0, lambdas=lambdas, arguments=arguments2)
             amp_dict[(h0, l1, l2, l3)] = amp
             amp_dict2[(h0, l1, l2, l3)] = amp2
-            amp_dict3[(h0, l1, l2, l3)] = decay3.chain_function(h0, lambdas=lambdas, helicity_angles=topology2.helicity_angles(momenta), arguments=arguments3)
-            amp_dict_dpd[(h0, l1, l2, l3)] = decay_dpd.chain_function(h0, lambdas=lambdas, helicity_angles=topology1.helicity_angles(momenta), arguments=arguments_dpd)
+            amp_dict3[(h0, l1, l2, l3)] = decay3.chain_function(h0, lambdas=lambdas, arguments=arguments3)
+            amp_dict_dpd[(h0, l1, l2, l3)] = decay_dpd.chain_function(h0, lambdas=lambdas, arguments=arguments_dpd)
 
     def basis_change(dtc, rotation, final_state_qn):
         """
@@ -257,7 +257,7 @@ def test_threebody_1():
             for value in dtc.values()
         )
 
-    dpd_value = decay_dpd.chain_function(-1, lambdas={1:1, 2:2,3:0}, helicity_angles=topology1.helicity_angles(momenta), arguments=arguments_dpd)
+    dpd_value = decay_dpd.chain_function(-1, lambdas={1:1, 2:2,3:0}, arguments=arguments_dpd)
     print(dpd_value/2**0.5)
     
     # this is a reference value copied from the output of the decayangle code
@@ -265,6 +265,7 @@ def test_threebody_1():
     print((-0.14315554700441074 + 0.12414558894503328j))
 
     print(unpolarized(full_amp))
+    assert np.allclose(unpolarized(full_amp), unpolarized(full_amp)[0])
 
 
 if __name__ == "__main__":
