@@ -1,4 +1,4 @@
-from typing import Union, Optional
+from typing import Union, Optional, Callable
 from itertools import product
 from functools import cached_property
 
@@ -297,7 +297,7 @@ class MultiChain(DecayChain):
             raise ValueError("Either resonances or chains must be provided")
 
     @property
-    def chain_function(self):
+    def chain_function(self) -> Callable:
         def f(h0, lambdas:dict, arguments:dict):
             return sum(
                 chain.chain_function(h0, lambdas, arguments)
@@ -306,14 +306,14 @@ class MultiChain(DecayChain):
         return f
     
     @property
-    def resonance_list(self):
+    def resonance_list(self) -> list[Resonance]:
         return [
             resonance for chain in self.chains
             for resonance in chain.resonance_list
         ]
     
     @property
-    def final_state_keys(self):
+    def final_state_keys(self) -> list[Union[tuple, int]]:
         return self.chains[0].final_state_keys
     
     @property
