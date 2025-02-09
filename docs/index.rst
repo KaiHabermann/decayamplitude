@@ -1,12 +1,12 @@
-.. decayangle documentation master file, created by
+.. decayamplitude documentation master file, created by
    sphinx-quickstart on Tue Apr  2 16:09:04 2024.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. Welcome to decayangle's documentation!
+.. Welcome to decayamplitude's documentation!
 .. ======================================
 
-.. automodule:: decayangle
+.. automodule:: decayamplitude
     :members:
 
 .. toctree::

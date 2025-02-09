@@ -9,9 +9,9 @@ import os, sys
 
 sys.path.insert(0, os.path.abspath("../src/"))
 project = "decayangle"
-copyright = "2024, Kai Habermann, Mikhail Mikhasenko"
-author = "Kai Habermann, Mikhail Mikhasenko"
-release = "02.04.2024"
+copyright = "2024, Kai Habermann"
+author = "Kai Habermann"
+release = "09.02.2025"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
