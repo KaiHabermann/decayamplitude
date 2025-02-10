@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Generator
 from sympy import Rational, Symbol, lambdify
 from sympy.physics.quantum.cg import CG
 from sympy.physics.quantum.spin import Rotation
@@ -125,7 +125,7 @@ class QN:
         return [QN(j, p) for j in self.angular.couple(other.angular) for p in [self.parity * other.parity]]
     
     @classmethod
-    def generate_L_states(cls, state0: "QN", state1:"QN", state2:"QN")-> list[tuple["QN", "QN"]]:
+    def generate_L_states(cls, state0: "QN", state1:"QN", state2:"QN")-> Generator[tuple["QN", "QN"]]:
         """
         state0 -> state1 + state2
         S = coupled spins of state 1 and state 2
@@ -141,8 +141,8 @@ class QN:
             Quantum numbers of the second final state
 
         returns:
-        list[tuple[QN, QN]]
-            List of possible (L, S) states
+        Generator[tuple[QN, QN]]
+            Generator of possible (L, S) states
             Partity is not given, since it is defined by state0
 
         """
