@@ -211,7 +211,7 @@ class DecayChain:
         return list(set(resonance_parameter_names))
 
 class AlignedChain(DecayChain):
-    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], reference:Topology | DecayChain, wigner_rotation: dict[tuple, WignerAngles]= None) -> None:
+    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], reference:Union[Topology, DecayChain], wigner_rotation: dict[tuple, WignerAngles]= None) -> None:
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
         self.topology = topology
         if wigner_rotation is None:
