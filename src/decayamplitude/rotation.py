@@ -125,7 +125,7 @@ class QN:
         return [QN(j, p) for j in self.angular.couple(other.angular) for p in [self.parity * other.parity]]
     
     @classmethod
-    def generate_L_states(cls, state0: "QN", state1:"QN", state2:"QN")-> Generator[tuple["QN", "QN"]]:
+    def generate_L_states(cls, state0: "QN", state1:"QN", state2:"QN")-> Generator[tuple["QN", "QN"], None, None]:
         """
         state0 -> state1 + state2
         S = coupled spins of state 1 and state 2
