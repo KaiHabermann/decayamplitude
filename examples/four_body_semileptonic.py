@@ -10,6 +10,7 @@ from decayangle.decay_topology import Topology, Node
 from decayangle.kinematics import mass
 from decayangle.config import config as decayangle_config
 decayangle_config.backend = "jax"
+decayangle_config.sorting = "off"
 
 from jax import jit, grad
 
@@ -69,10 +70,6 @@ def shortFourBodyAmplitudeBW():
         4: np.array(momenta["p_3"]),
     }
 
-    # topology2 = Topology(
-    #     0,
-    #     decay_topology=((1, 2), 3)
-    # )
     resonances_hadronic = resonances_BW(momenta)
     chain1 = MultiChain(
         topology = topology1,
@@ -84,11 +81,17 @@ def shortFourBodyAmplitudeBW():
     # For semileptonics no actual alignment is needed, as we are only interested in one single decay chain
     # But doing it this way allows to use the convenience functions of the combiner
     full = ChainCombiner([chain1])
-    unpolarized, argnames = full.unpolarized_amplitude(full.generate_ls_couplings())
+
+    # The unpolarized amplitude is the simplest one, and the default case in LHCb
+    unpolarized, argnames = full.unpolarized_amplitude(
+        full.generate_ls_couplings() # This is a helper function to generate the couplings for the hadronic system, if you want to restrict them, you will have to do it manually.
+                                    # Alternatively you can also restrict the couplings in the fitter later.      
+        )
     print(argnames)
 
     # an issue with jax, where the internal caching structure needs to be prewarmed, so that in the compilation step the correct types are inferred
     print(unpolarized(*([1] * len(argnames))))
+    
     # we can now jit the function
     unpolarized = jit(unpolarized) 
     print(unpolarized(*([1] * len(argnames))))
@@ -105,6 +108,8 @@ def shortFourBodyAmplitudeBW():
     # and a test call
     print(unpolarized_grad(*([1.0] * len(argnames))))
 
+
+    # Other options for amplitudes, one might be interested int
     # polarized, lambdas ,polarized_argnames = full.polarized_amplitude(full.generate_ls_couplings())
     # print(lambdas)
     # lambda_values = [0, 0, 0, 1, 1]
