@@ -11,7 +11,7 @@ class ChainCombiner:
     All other chains will be transformed into the reference basis.
     """
 
-    def __init__(self, chains: list[DecayChain | MultiChain]) -> None:
+    def __init__(self, chains: list[Union[DecayChain, MultiChain]]) -> None:
         self.chains = chains
         self.reference = chains[0]
         self.aligned_chains = [

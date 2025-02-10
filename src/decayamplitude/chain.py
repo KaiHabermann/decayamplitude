@@ -374,7 +374,7 @@ class MultiChain(DecayChain):
     
 class AlignedMultiChain(MultiChain):
     @classmethod
-    def from_chains(cls, chains: list[DecayChain], reference:Topology | DecayChain) -> "AlignedMultiChain":
+    def from_chains(cls, chains: list[DecayChain], reference:Union[Topology, DecayChain]) -> "AlignedMultiChain":
         return cls(
             chains[0].topology,
             chains[0].momenta,
@@ -384,13 +384,13 @@ class AlignedMultiChain(MultiChain):
         )
 
     @classmethod
-    def from_multichain(cls, multichain: MultiChain, reference:Topology | DecayChain) -> "AlignedMultiChain":
+    def from_multichain(cls, multichain: MultiChain, reference:Union[Topology, DecayChain]) -> "AlignedMultiChain":
         return cls.from_chains(
             multichain.chains,
             reference
         )
 
-    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN], reference:Topology | DecayChain, resonances: Optional[dict[tuple, tuple[Resonance]]] = None, chains: Optional[list[DecayChain]] = None, wigner_rotation: dict[tuple, WignerAngles]= None) -> None:
+    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN], reference:Union[Topology, DecayChain], resonances: Optional[dict[tuple, tuple[Resonance]]] = None, chains: Optional[list[DecayChain]] = None, wigner_rotation: dict[tuple, WignerAngles]= None) -> None:
         super().__init__(topology, momenta, final_state_qn, resonances=resonances, chains=chains)
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
         if wigner_rotation is None:
