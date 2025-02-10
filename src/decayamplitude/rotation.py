@@ -3,7 +3,7 @@ from sympy import Rational, Symbol, lambdify
 from sympy.physics.quantum.cg import CG
 from sympy.physics.quantum.spin import Rotation
 from decayamplitude.backend import numpy as np
-from functools import cache
+from functools import lru_cache as cache
 from sympy.abc import x as placeholder
 from itertools import product
 
