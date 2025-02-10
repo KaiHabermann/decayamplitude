@@ -15,7 +15,7 @@ name = "decayamplitude"
 description = 'A tool for modeling of amplitudes using jax'
 version = '0.1.0'
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = "MIT"
 keywords = []
 authors = [
@@ -24,7 +24,6 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -63,5 +62,5 @@ dependencies = [
 cov = 'pytest --cov-report=term-missing --cov-report=xml --cov-config=pyproject.toml --cov --cov=tests'
 
 [[tool.hatch.envs.test.matrix]]
-python = ["312", "311", "310", "39", "38"] 
+python = ["312", "311", "310", "39"] 
 version = ["0.1.0"]
