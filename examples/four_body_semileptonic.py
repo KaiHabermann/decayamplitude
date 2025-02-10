@@ -14,25 +14,30 @@ decayangle_config.backend = "jax"
 from jax import jit, grad
 
 from collections import defaultdict
+
+# Since we are semi leptonic there is only one important decay topology
+# The (1, 2) system is the hadronic system, which is the one we are interested in
+# Decay definition: B0 -> D0 h mu nu
 topology1 = Topology(
     0,
     decay_topology=((1,2), (3, 4))
 )
 
-# Decay definition: B0 -> D0 h mu nu
-
 def resonances_BW(momenta):
     m_12 = topology1.nodes[(1,2)].mass(momenta=momenta)
     resonances_hadronic = {
         (1,2): [
-            # Here the hadronic resonances go
-            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_1", "width_resonance_1"]),
-            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_2", "width_resonance_2"]),
-            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_3", "width_resonance_3"]),
-            # Resonance(Node((1, 2)), quantum_numbers=QN(J, P), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_n", "width_resonance_n"]),
+            # Here the hadronic resonances go+
+            # These will decay strong, so we need to conserve parity
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_1", "width_resonance_1"], preserve_partity=True),
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_2", "width_resonance_2"], preserve_partity=True),
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_3", "width_resonance_3"], preserve_partity=True),
+            # Resonance(Node((1, 2)), quantum_numbers=QN(J, P), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_n", "width_resonance_n"], preserve_partity=True), # template for further resonances
             ],
         # This is the W boson. It is defined as a resonance, but we assue a constant lineshape in this mass regime. One could use a more complicated one aswell.
         (3, 4): [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False)],
+
+        # This is the decaying B0 meson. It is defined as a resonance, but since this is a decay amplitude, the description is not important. Only the QN have to be correct. 
         0: [Resonance(Node(0), quantum_numbers=QN(0, 1), lineshape=constant_lineshape, argnames=[], preserve_partity=False)]
     }
     return resonances_hadronic
