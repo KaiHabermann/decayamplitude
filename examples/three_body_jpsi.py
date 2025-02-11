@@ -143,7 +143,7 @@ def shortFourBodyAmplitudeBW():
     # so unpolarized(*[1, 2, 3, 4, 5, 6]) is the same as unpolarized(mass_resonance_1=1, width_resonance_1=2, mass_resonance_2=3, width_resonance_2=4, mass_resonance_3=5, width_resonance_3=6), omitting the couplings
     print(argnames)
 
-    # an issue with jax, where the internal caching structure needs to be prewarmed, so that in the compilation step the correct types are inferred
+    # an issue with jax, where the internal caching structure needs to be prewarmed, so that in the compilation step everything, that can be static, is static
     print(unpolarized(*([1] * len(argnames))))
     
     # we can now jit the function
