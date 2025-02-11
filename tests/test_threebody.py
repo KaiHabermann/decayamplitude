@@ -287,7 +287,7 @@ def testShortThreeBodyAmplitude():
     unpolarized2, argnames2 = full2.unpolarized_amplitude(full2.generate_ls_couplings())
 
     # initial orientation should not affect the result
-    assert np.allclose(unpolarized2(*([1] * len(argnames))), unpolarized2(*([1] * len(argnames)))[0])
+    assert np.allclose(unpolarized2(*([1] * len(argnames))), unpolarized2(*([1] * len(argnames2)))[0])
 
     assert np.allclose(unpolarized2(*([1] * len(argnames))) , unpolarized(*([1] * len(argnames))))
 
