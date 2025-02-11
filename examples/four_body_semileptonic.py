@@ -84,7 +84,7 @@ def shortFourBodyAmplitudeBW():
 
     # The unpolarized amplitude is the simplest one, and the default case in LHCb
     unpolarized, argnames = full.unpolarized_amplitude(
-        full.generate_ls_couplings() # This is a helper function to generate the couplings for the hadronic system, if you want to restrict them, you will have to do it manually.
+        full.generate_couplings() # This is a helper function to generate the couplings for the hadronic system, if you want to restrict them, you will have to do it manually.
                                     # Alternatively you can also restrict the couplings in the fitter later.      
         )
     # argnames are the names of the arguments of the function, which are the masses and widths of the resonances and the couplings
@@ -114,12 +114,12 @@ def shortFourBodyAmplitudeBW():
 
 
     # Other options for amplitudes, one might be interested int
-    # polarized, lambdas ,polarized_argnames = full.polarized_amplitude(full.generate_ls_couplings())
+    # polarized, lambdas ,polarized_argnames = full.polarized_amplitude(full.generate_couplings())
     # print(lambdas)
     # lambda_values = [0, 0, 0, 1, 1]
     # print(polarized(*lambda_values,*([1] * len(polarized_argnames))) )
 
-    # matrix_function, matrix_argnames = full.matrix_function(full.generate_ls_couplings())
+    # matrix_function, matrix_argnames = full.matrix_function(full.generate_couplings())
     # print(matrix_argnames)
     # print(matrix_function(0, *([1] * len(argnames))) )
 

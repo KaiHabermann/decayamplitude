@@ -35,7 +35,10 @@ def resonances(momenta):
             Resonance(Node((1, 2)), quantum_numbers=QN(2, 1), lineshape=BW_lineshape(m_pi_pi), argnames=["mass_resonance_1", "width_resonance_1"], preserve_partity=True, name="pipi_resonance_1"),
             ],
         # This is the J/Psi meson. It is defined as a resonance, but we assue a constant lineshape, since it is a extremely narrow resonance. 
-        (3, 4): [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name="J/Psi_1")],
+        # By setting this resonance to the helicity scheme, the resulting function will expect helicity couplings and not ls couplings
+        # Note, that the preserve_partity flag is still set to True, but does not have any effect in the helicity scheme, as here parity conservation can not be enforced by truncating the couplings
+        # For the J/Psi decay, we know, that the helicity couplings are all the same and we can thus just fix them in the fitter.
+        (3, 4): [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name="J/Psi_1", scheme="helicity")],
 
         # This is the decaying B0 meson. It is defined as a resonance, but since this is a decay amplitude, the description is not important. Only the QN have to be correct aswell as the parity conservation, since this controlls the automated ls couplings
         0: [Resonance(Node(0), quantum_numbers=QN(0, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="B0_1")]
@@ -49,10 +52,13 @@ def resonances(momenta):
             Resonance(Node((1, 3, 4)), quantum_numbers=QN(2, -1), lineshape=BW_lineshape(m_pip_JPsi), argnames=["mass_resonance_2", "width_resonance_2"], preserve_partity=True, name="J/Psi_resonance_1"),
             ],
         # This is the J/Psi meson. It is defined as a resonance, but we assue a constant lineshape, since it is a extremely narrow resonance. 
+        # By setting this resonance to the helicity scheme, the resulting function will expect helicity couplings and not ls couplings
+        # Note, that the preserve_partity flag is still set to True, but does not have any effect in the helicity scheme, as here parity conservation can not be enforced by truncating the couplings
+        # For the J/Psi decay, we know, that the helicity couplings are all the same and we can thus just fix them in the fitter.
         (3, 4): [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name="J/Psi_2")],
 
         # This is the decaying B0 meson. It is defined as a resonance, but since this is a decay amplitude, the description is not important. Only the QN have to be correct aswell as the parity conservation, since this controlls the automated ls couplings
-        0: [Resonance(Node(0), quantum_numbers=QN(0, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="B0_2")]
+        0: [Resonance(Node(0), quantum_numbers=QN(0, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="B0_2", scheme="helicity")]
     }
 
     m_pi_m_JPsi = topology_pi_m_JPsi.nodes[(2,3,4)].mass(momenta=momenta)
@@ -63,7 +69,10 @@ def resonances(momenta):
             Resonance(Node((2, 3, 4)), quantum_numbers=QN(0, -1), lineshape=BW_lineshape(m_pi_m_JPsi), argnames=["mass_resonance_3", "width_resonance_3"], preserve_partity=True, name="J/Psi_resonance_2"),
             ],
         # This is the J/Psi meson. It is defined as a resonance, but we assue a constant lineshape, since it is a extremely narrow resonance. 
-        (3, 4): [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name="J/Psi_3")],
+        # By setting this resonance to the helicity scheme, the resulting function will expect helicity couplings and not ls couplings
+        # Note, that the preserve_partity flag is still set to True, but does not have any effect in the helicity scheme, as here parity conservation can not be enforced by truncating the couplings
+        # For the J/Psi decay, we know, that the helicity couplings are all the same and we can thus just fix them in the fitter.
+        (3, 4): [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name="J/Psi_3", scheme="helicity")],
 
         # This is the decaying B0 meson. It is defined as a resonance, but since this is a decay amplitude, the description is not important. Only the QN have to be correct aswell as the parity conservation, since this controlls the automated ls couplings
         0: [Resonance(Node(0), quantum_numbers=QN(0, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="B0_3")]
@@ -125,7 +134,7 @@ def shortFourBodyAmplitudeBW():
 
     # The unpolarized amplitude is the simplest one, and the default case in LHCb
     unpolarized, argnames = full.unpolarized_amplitude(
-        full.generate_ls_couplings() # This is a helper function to generate the couplings for the hadronic system, if you want to restrict them, you will have to do it manually.
+        full.generate_couplings() # This is a helper function to generate the couplings for the hadronic system, if you want to restrict them, you will have to do it manually.
                                     # Alternatively you can also restrict the couplings in the fitter later.      
         )
     # argnames are the names of the arguments of the function, which are the masses and widths of the resonances and the couplings
@@ -157,12 +166,12 @@ def shortFourBodyAmplitudeBW():
 
 
     # Other options for amplitudes, one might be interested int
-    # polarized, lambdas ,polarized_argnames = full.polarized_amplitude(full.generate_ls_couplings())
+    # polarized, lambdas ,polarized_argnames = full.polarized_amplitude(full.generate_couplings())
     # print(lambdas)
     # lambda_values = [0, 0, 0, 1, 1]
     # print(polarized(*lambda_values,*([1] * len(polarized_argnames))) )
 
-    # matrix_function, matrix_argnames = full.matrix_function(full.generate_ls_couplings())
+    # matrix_function, matrix_argnames = full.matrix_function(full.generate_couplings())
     # print(matrix_argnames)
     # print(matrix_function(0, *([1] * len(argnames))) )
 

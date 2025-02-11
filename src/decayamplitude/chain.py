@@ -195,13 +195,12 @@ class DecayChain:
         
         return matrix
     
-    def generate_ls_couplings(self):
+    def generate_couplings(self):
         """
         Returns all LS couplings for the decay chain
         """
-        print(f"Generating LS couplings for {self.topology}")
         return {
-            node.resonance.id: node.resonance.generate_ls_couplings(node.resonance.preserve_partity)
+            node.resonance.id: node.resonance.generate_couplings(node.resonance.preserve_partity)
             for node in self.nodes
             if not node.final_state
         }
@@ -364,13 +363,13 @@ class MultiChain(DecayChain):
     def helicity_tuples(self):
         return self.chains[0].helicity_tuples
     
-    def generate_ls_couplings(self):
+    def generate_couplings(self):
         """
         Returns all LS couplings for the decay chain
         """
         coupling_dict = {}
         for chain in self.chains:
-            coupling_dict.update(chain.generate_ls_couplings())
+            coupling_dict.update(chain.generate_couplings())
         return coupling_dict
     
     @property

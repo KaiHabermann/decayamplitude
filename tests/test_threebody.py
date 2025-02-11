@@ -156,24 +156,24 @@ def test_threebody_1():
 
     arguments1 = {
         resonances1[(2,3)].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 2) : 1
             }
         }, 
         resonances1[0].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 1) : 1
             }
         }
     }
     arguments2 = {
         resonances2[(1,2)].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 3) : 1
             }
         }, 
         resonances2[0].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 3) : 1
             }
         }
@@ -181,12 +181,12 @@ def test_threebody_1():
 
     arguments3 = {
         resonances3[(1,2)].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 3) : 1
             }
         }, 
         resonances3[0].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 1) : 1
             }
         }
@@ -194,12 +194,12 @@ def test_threebody_1():
 
     arguments_dpd = {
         resonances_dpd[(2,3)].id : {
-            "ls_couplings": {
+            "couplings": {
                 (4, 2): 1
             },
         },
         resonances_dpd[0].id : {
-            "ls_couplings": {
+            "couplings": {
                 (4, 3): 1
             }
         }
@@ -273,18 +273,18 @@ def testShortThreeBodyAmplitude():
     merged_resonances[0] = [merged_resonances[0][0]]
 
     full = ChainCombiner([chain1, chain2])
-    arguments = full.generate_ls_couplings()
+    arguments = full.generate_couplings()
 
     matrix1 = full.combined_matrix(-1, arguments)
     matrix2 = full.combined_matrix(1, arguments)
 
-    unpolarized, argnames = full.unpolarized_amplitude(full.generate_ls_couplings())
+    unpolarized, argnames = full.unpolarized_amplitude(full.generate_couplings())
     assert np.allclose(sum(abs(v)**2 for v in matrix1.values()) + sum(abs(v)**2 for v in matrix2.values()), unpolarized(*([1] * len(argnames))))
     assert np.allclose(unpolarized(*([1] * len(argnames))), unpolarized(*([1] * len(argnames)))[0])
 
     full2 = ChainCombiner([chain1, MultiChain(topology2, momenta=momenta, resonances=merged_resonances, final_state_qn=final_state_qn)])
   
-    unpolarized2, argnames2 = full2.unpolarized_amplitude(full2.generate_ls_couplings())
+    unpolarized2, argnames2 = full2.unpolarized_amplitude(full2.generate_couplings())
 
     # initial orientation should not affect the result
     assert np.allclose(unpolarized2(*([1] * len(argnames))), unpolarized2(*([1] * len(argnames2)))[0])

@@ -99,13 +99,13 @@ class ChainCombiner:
             return self.combined_matrix(h0, arguments)
         return self.__create_function(["h0"] + self.resonance_params, ls_couplings, fun)
     
-    def generate_ls_couplings(self):
+    def generate_couplings(self):
         """
         Generates the couplings for the ls basis.
         """
         couplings = {}
         for chain in self.chains:
-            couplings.update(chain.generate_ls_couplings())
+            couplings.update(chain.generate_couplings())
         return couplings
     
     def __create_function(self, names:list[set], ls_couplings:dict[int, dict[str: dict[LSTuple, float]]], f):
@@ -118,11 +118,12 @@ class ChainCombiner:
             coupling_structure = {}
             for resonance_id, coupling_dict in ls_couplings.items():
                 coupling_structure[resonance_id] = {}
-                for key, _ in coupling_dict["ls_couplings"].items():
-                    if Resonance.get_instance(resonance_id).name is None:
-                        name = f"COUPLING_ID_{resonance_id}_LS_{'_'.join([str(k) for k in key])}"
+                for key, _ in coupling_dict["couplings"].items():
+                    resonance = Resonance.get_instance(resonance_id)
+                    if resonance.name is None:
+                        name = f"COUPLING_ID_{resonance_id}_{"LS" if resonance.scheme == "ls" else "H"}_{'_'.join([str(k) for k in key])}"
                     else:
-                        name = f"{Resonance.get_instance(resonance_id).sanitized_name}_LS_{'_'.join([str(k) for k in key])}"
+                        name = f"{resonance.sanitized_name}_{"LS" if resonance.scheme == "ls" else "H"}_{'_'.join([str(k) for k in key])}"
                     coupling_names.append(name) # we need only define a name 
                     coupling_structure[resonance_id][key] = name
             full_names = names + coupling_names
@@ -132,7 +133,7 @@ class ChainCombiner:
                 named_map.update(kwargs)
                 couplings = {}
                 for resonance_id, coupling_dict in coupling_structure.items():
-                    couplings[resonance_id] = {"ls_couplings":{
+                    couplings[resonance_id] = {"couplings":{
                         key: named_map[coupling_dict[key]] for key in coupling_dict
                     }}
                 arguments = named_map.copy()

@@ -1,10 +1,11 @@
 from decayangle.decay_topology import Node, HelicityAngles
 from decayamplitude.rotation import QN, Angular, clebsch_gordan, wigner_capital_d, convert_angular
-from typing import Union, Callable
+from typing import Union, Callable, Literal
 from collections import namedtuple
 from functools import cached_property
 
 LSTuple = namedtuple("LSTuple", ["l", "s"])
+HelicityTuple = namedtuple("HelicityTuple", ["h1", "h2"])
 
 class Resonance:
     __instances = {}
@@ -15,7 +16,7 @@ class Resonance:
     def get_instance(cls, id:int) -> "Resonance":
         return cls.__instances[id]
 
-    def __init__(self, node:Node, spin:Union[Angular, int] = None, parity:int = None, quantum_numbers:QN = None, lineshape = None, argnames = None, name = None, preserve_partity=True) -> None:
+    def __init__(self, node:Node, spin:Union[Angular, int] = None, parity:int = None, quantum_numbers:QN = None, lineshape = None, argnames = None, name = None, preserve_partity=True, scheme:Literal["ls", "helicity"]="ls") -> None:
         self.node = node
         self.preserve_partity = preserve_partity
         if quantum_numbers is None:
@@ -39,6 +40,9 @@ class Resonance:
             self.register_lineshape(lineshape, argnames)
             self.__lineshape = lineshape
             self.__parameter_names = argnames
+        if scheme not in ["ls", "helicity"]:
+            raise ValueError("scheme must be either 'ls' or 'helicity'")
+        self.__scheme = scheme
 
     @property
     def parameter_names(self) -> list[str]:
@@ -48,11 +52,21 @@ class Resonance:
         return [arguments[name] for name in self.__parameter_names]
 
     @property
+    def scheme(self) -> str:
+        return self.__scheme
+
+    @property
     def name(self) -> Union[str, None]:
         return self.__name
     
     @cached_property
     def sanitized_name(self) -> Union[str, None]:
+        """
+        Name sanitized for use in python code
+
+        Returns:
+            str: sanitized name
+        """
         replacements = [
             ("*", "star"),
             ("(", ""),
@@ -91,7 +105,7 @@ class Resonance:
         return instance_id
     
     def copy(self):
-        return Resonance(self.node, quantum_numbers=self.quantum_numbers, lineshape=self.__lineshape, argnames=self.__parameter_names, name=self.__name, preserve_partity=self.preserve_partity)
+        return Resonance(self.node, quantum_numbers=self.quantum_numbers, lineshape=self.__lineshape, argnames=self.__parameter_names, name=self.__name, preserve_partity=self.preserve_partity, scheme=self.__scheme)
 
     @property
     def lineshape(self) -> Callable:
@@ -165,13 +179,22 @@ class Resonance:
         The arguments are a dict of the form {id: {parameter_name: value}} where the id is the id of the resonance
         The ls couplings are a dict of the form {(l,s): value_r } under the name ls_couplings
         """
-        couplings = arguments[self.id]["ls_couplings"]
+        couplings = arguments[self.id]["couplings"]
         return {LSTuple(*key): value for key, value in couplings.items()}
 
-    def generate_ls_couplings(self, conserve_parity:bool = True) -> dict[LSTuple, float]:
+    def generate_couplings(self, conserve_parity:bool = True) -> dict[Union[LSTuple, HelicityTuple], float]:
         """
         This function should be used to generate the couplings for the resonance
         """
+
+        if self.scheme == "helicity":
+            return {
+                "couplings": {
+                    HelicityTuple(h1, h2): 1
+                    for h1 in self.daughter_qn[0].projections(return_int=True)
+                    for h2 in self.daughter_qn[1].projections(return_int=True)
+                }
+            }
         qn1, qn2 = self.daughter_qn
         qn0 = self.quantum_numbers
 
@@ -182,18 +205,21 @@ class Resonance:
         if len(possible_states) == 0:
             raise ValueError(f"No possible states for resonance {self.name} at {self.node} with {qn0}, {qn1}, {qn2}.")
         return {
-                "ls_couplings": {
+                "couplings": {
                     LSTuple(l.value2, s.value2): 1
                     for l, s in possible_states
                 }
-            } 
-
+            }
+    
     @convert_angular
     def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict):
-        couplings = self.__construct_couplings(arguments)
+        if self.scheme == "ls":
+            couplings = self.__construct_couplings(arguments)
         # lineshape_args = self.__construct_arguments(arguments)
-        coupling = self.helicity_from_ls(h0, h1, h2, couplings ,arguments)
-        return coupling 
+            coupling = self.helicity_from_ls(h0, h1, h2, couplings ,arguments)
+        else:
+            coupling = arguments[self.id]["couplings"][(h1, h2)]
+        return coupling
     
     def register_lineshape(self, lineshape_function:Callable, parameter_names: list[str]):
         if self.__lineshape is not None:

@@ -121,24 +121,24 @@ def threeBodyAmplitude():
 
     arguments1 = {
         resonances1[(2,3)].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 2) : 1
             }
         }, 
         resonances1[0].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 1) : 1
             }
         }
     }
     arguments2 = {
         resonances2[(1,2)].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 3) : 1
             }
         }, 
         resonances2[0].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 3) : 1
             }
         }
@@ -146,12 +146,12 @@ def threeBodyAmplitude():
 
     arguments3 = {
         resonances3[(1,2)].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 3) : 1
             }
         }, 
         resonances3[0].id : {
-            "ls_couplings":{
+            "couplings":{
                 (2, 1) : 1
             }
         }
@@ -159,12 +159,12 @@ def threeBodyAmplitude():
 
     arguments_dpd = {
         resonances_dpd[(2,3)].id : {
-            "ls_couplings": {
+            "couplings": {
                 (4, 2): 1
             },
         },
         resonances_dpd[0].id : {
-            "ls_couplings": {
+            "couplings": {
                 (4, 3): 1
             }
         }
@@ -263,18 +263,18 @@ def shortThreeBodyAmplitude():
     merged_resonances[0] = [merged_resonances[0][0]]
 
     full = ChainCombiner([chain1, chain2])
-    arguments = full.generate_ls_couplings()
+    arguments = full.generate_couplings()
 
     matrix1 = full.combined_matrix(-1, arguments)
     matrix2 = full.combined_matrix(1, arguments)
     print(sum(abs(v)**2 for v in matrix1.values()) + 
           sum(abs(v)**2 for v in matrix2.values())
     )
-    unpolarized, argnames = full.unpolarized_amplitude(full.generate_ls_couplings())
+    unpolarized, argnames = full.unpolarized_amplitude(full.generate_couplings())
     print(argnames)
     print(unpolarized(*([1] * len(argnames))))
     full2 = ChainCombiner([chain1, MultiChain(topology2, momenta=momenta, resonances=merged_resonances, final_state_qn=final_state_qn)])
-    unpolarized, argnames = full2.unpolarized_amplitude(full2.generate_ls_couplings())
+    unpolarized, argnames = full2.unpolarized_amplitude(full2.generate_couplings())
     print(argnames)
     print(unpolarized(*([1] * len(argnames))))
 
@@ -326,16 +326,16 @@ def shortThreeBodyAmplitudeBW():
     ])
 
     full = ChainCombiner([chain1, chain2])
-    unpolarized, argnames = full.unpolarized_amplitude(full.generate_ls_couplings())
+    unpolarized, argnames = full.unpolarized_amplitude(full.generate_couplings())
     print(argnames)
     print(unpolarized(*([1] * len(argnames))) )
 
-    polarized, lambdas ,polarized_argnames = full.polarized_amplitude(full.generate_ls_couplings())
+    polarized, lambdas ,polarized_argnames = full.polarized_amplitude(full.generate_couplings())
     print(lambdas)
     lambda_values = [1, 1, 0, 0]
     print(polarized(*lambda_values,*([1] * len(polarized_argnames))) )
 
-    matrx_function, matrix_argnames = full.matrix_function(full.generate_ls_couplings())
+    matrx_function, matrix_argnames = full.matrix_function(full.generate_couplings())
     print(matrix_argnames)
     print(matrx_function(1, *([1] * len(argnames))) )
 

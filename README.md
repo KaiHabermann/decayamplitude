@@ -121,18 +121,18 @@ We can now combine the chains into a `ChainCombiner` object. This object will in
 combined = ChainCombiner([chain1, chain2])
 
 # we can generate the unpolarized amplitude
-unpolarized, argnames = combined.unpolarized_amplitude(combined.generate_ls_couplings())
+unpolarized, argnames = combined.unpolarized_amplitude(combined.generate_couplings())
 # unpolarized(*args) will return the amplitude for the given parameters
 
 # we can generate the matix elements depending on the polarization of the particles
-polarized, lambdas, argnames = combined.polarized_amplitude(combined.generate_ls_couplings())
+polarized, lambdas, argnames = combined.polarized_amplitude(combined.generate_couplings())
 # polarized(*lambdas, *args) will return the amplitude for the given parameters and polarization
 
 # here we get a list of aditional function parameters, which represent the polarization of the initial and final state particles
 # lambdas = ["h_0", "h_1", "h_2", "h_3"]
 
 # alternatively we can produce all matrix elements at once
-matrx_function, matrix_argnames = combined.matrix_function(combined.generate_ls_couplings())
+matrx_function, matrix_argnames = combined.matrix_function(combined.generate_couplings())
 # here we only have the initial state polarization as an additional parameter
 # matrix_argnames = ["h_0"] + argnames
 # matrx_function(h_0, *args) will return the amplitude for the given parameters and polarization
