@@ -119,9 +119,9 @@ def shortFourBodyAmplitudeBW():
     # lambda_values = [0, 0, 0, 1, 1]
     # print(polarized(*lambda_values,*([1] * len(polarized_argnames))) )
 
-    # matrx_function, matrix_argnames = full.matrix_function(full.generate_ls_couplings())
+    # matrix_function, matrix_argnames = full.matrix_function(full.generate_ls_couplings())
     # print(matrix_argnames)
-    # print(matrx_function(0, *([1] * len(argnames))) )
+    # print(matrix_function(0, *([1] * len(argnames))) )
 
 
 if __name__ == "__main__":
