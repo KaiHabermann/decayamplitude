@@ -55,10 +55,10 @@ def resonances(momenta):
         # By setting this resonance to the helicity scheme, the resulting function will expect helicity couplings and not ls couplings
         # Note, that the preserve_partity flag is still set to True, but does not have any effect in the helicity scheme, as here parity conservation can not be enforced by truncating the couplings
         # For the J/Psi decay, we know, that the helicity couplings are all the same and we can thus just fix them in the fitter.
-        (3, 4): [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name="J/Psi_2")],
+        (3, 4): [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name="J/Psi_2", scheme="helicity")],
 
         # This is the decaying B0 meson. It is defined as a resonance, but since this is a decay amplitude, the description is not important. Only the QN have to be correct aswell as the parity conservation, since this controlls the automated ls couplings
-        0: [Resonance(Node(0), quantum_numbers=QN(0, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="B0_2", scheme="helicity")]
+        0: [Resonance(Node(0), quantum_numbers=QN(0, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="B0_2")]
     }
 
     m_pi_m_JPsi = topology_pi_m_JPsi.nodes[(2,3,4)].mass(momenta=momenta)
