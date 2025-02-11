@@ -53,7 +53,13 @@ def phasespace_momenta():
     NU_MASS = 0
     weights, particles = phasespace.nbody_decay(B0_MASS,
                                             [D0_MASS, PION_MASS, MU_MASS, NU_MASS]).generate(n_events=10)
-    return particles
+    momenta = {
+        1: np.array(particles["p_0"]),
+        2: np.array(particles["p_1"]),
+        3: np.array(particles["p_2"]),
+        4: np.array(particles["p_3"]),
+    }
+    return momenta
 
 def shortFourBodyAmplitudeBW():
     final_state_qn = {
@@ -63,12 +69,6 @@ def shortFourBodyAmplitudeBW():
         4: QN(1, -1) # nu
     }
     momenta = phasespace_momenta()
-    momenta = {
-        1: np.array(momenta["p_0"]),
-        2: np.array(momenta["p_1"]),
-        3: np.array(momenta["p_2"]),
-        4: np.array(momenta["p_3"]),
-    }
 
     resonances_hadronic = resonances_BW(momenta)
     chain1 = MultiChain(
