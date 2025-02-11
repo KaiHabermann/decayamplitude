@@ -111,6 +111,12 @@ class Resonance:
     def daughter_qn(self, daughters: list[QN]):
         self.__daughter_qn = daughters
     
+    def __str__(self):
+        return f"Resonance {self.name} at {self.node} with {self.quantum_numbers}"
+    
+    def __repr__(self):
+        return self.__str__()
+    
     @convert_angular
     def helicity_from_ls(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], couplings:dict[LSTuple, float], arguments:dict):
         """
@@ -173,6 +179,8 @@ class Resonance:
         if not conserve_parity:
             qn0_bar = QN(qn0.angular.angular_momentum, -qn0.parity)
             possible_states.union(set(QN.generate_L_states(qn0_bar, qn1, qn2)))
+        if len(possible_states) == 0:
+            raise ValueError(f"No possible states for resonance {self.name} at {self.node} with {qn0}, {qn1}, {qn2}.")
         return {
                 "ls_couplings": {
                     LSTuple(l.value2, s.value2): 1

@@ -2,30 +2,32 @@ from typing import Union, Optional, Callable
 from itertools import product
 from functools import cached_property
 
+from decayangle.decay_topology import Topology, Node
+
 from decayangle.decay_topology import Topology, HelicityAngles, WignerAngles
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN, wigner_capital_d, Angular, convert_angular
 from decayamplitude.backend import numpy as np
 
 class DecayChainNode:
-    def __init__(self, tuple_value, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN], topology:Topology, convention:str="helicity") -> None:
+    def __init__(self, node:Node, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN], topology:Topology, convention:str="helicity") -> None:
         # this check needs to happen first to avoid errors
-        if tuple_value not in topology.nodes:
-            if  all(t in topology.nodes for t in tuple_value):
-                # if we are root, the above will be the case
-                self.tuple = topology.root.tuple
-                tuple_value = topology.root.value
-                self.__is_root = True
+
+        if node.value not in topology.nodes:
+            # someone may have initialized the root with a tuple instead of 0
+            if node.tuple == topology.root.tuple:
+                self.node = topology.root
             else:
-                raise ValueError(f"Node {tuple_value} not in topology")
+                raise ValueError(f"Node {node} not in topology {topology}")
         else:
-            self.tuple = tuple_value
-            self.__is_root = False
-        self.node = topology.nodes[tuple_value]
-        self.resonance: Union[Resonance, None] = resonances.get(tuple_value, None)
+            self.node = topology.nodes[node.value]
+        
+        self.tuple = self.node.tuple
+        self.__is_root = self.node == topology.root
+            
+        self.resonance: Union[Resonance, None] = resonances.get(self.tuple, resonances.get(self.node.value, None))
         if self.resonance is None and not self.final_state:
-            raise ValueError(f"Resonance for {tuple_value} not found. Every internal node must have a resonance to describe its behaviour!")
-        del tuple_value # explicitly delete this value after here
+            raise ValueError(f"Resonance for {self.node.tuple} not found. Every internal node must have a resonance to describe its behaviour!")
 
         self.resonances = resonances
         self.topology = topology
@@ -33,13 +35,13 @@ class DecayChainNode:
         self.convention = convention
             
         self.daughters = [
-                    DecayChainNode(daughter.tuple, resonances, self.final_state_qn, topology)
+                    DecayChainNode(daughter, resonances, self.final_state_qn, topology)
                     for daughter in self.node.daughters
             ]
         
         if not self.final_state:
             if self.resonance is None:
-                raise ValueError(f"Resonance for {tuple_value} not found. Every internal node must have a resonance to describe its behaviour!")
+                raise ValueError(f"Resonance for {self.tuple} not found. Every internal node must have a resonance to describe its behaviour!")
             # set the daughters of the resonance
             self.quantum_numbers = self.resonance.quantum_numbers
             self.resonance.daughter_qn = [daughter.quantum_numbers for daughter in self.daughters]
@@ -57,6 +59,10 @@ class DecayChainNode:
     @property
     def quantum_numbers(self) -> QN:
         return self.__qn 
+    
+    @property
+    def decay_tuple(self):
+        return tuple([daughter.node.value for daughter in self.daughters])
     
     @quantum_numbers.setter
     def quantum_numbers(self, qn: QN):
@@ -109,7 +115,7 @@ class DecayChainNode:
                     for A_1 in d1.amplitude(h1, lambdas, helicity_angles, arguments):
                         for A_2 in d2.amplitude(h2, lambdas, helicity_angles, arguments):
                             # TODO: add explicit handling of the arguments for the lineshape
-                            A_self = self.resonance.amplitude(h0, h1, h2, arguments) * np.conj(wigner_capital_d(*self.__helicity_angles(helicity_angles[self.tuple]), self.quantum_numbers.angular.value2, h0, h1 - h2))
+                            A_self = self.resonance.amplitude(h0, h1, h2, arguments) * np.conj(wigner_capital_d(*self.__helicity_angles(helicity_angles[self.decay_tuple]), self.quantum_numbers.angular.value2, h0, h1 - h2))
                             yield A_1 * A_2 * A_self * (self.quantum_numbers.angular.value2 + 1)**0.5
 
 class DecayChain:
@@ -143,7 +149,7 @@ class DecayChain:
     @property
     def nodes(self):
         return list(
-            DecayChainNode(node.tuple, self.resonances, self.final_state_qn, self.topology)
+            DecayChainNode(node, self.resonances, self.final_state_qn, self.topology)
             for node in self.topology.nodes.values()
         )
     
@@ -157,7 +163,7 @@ class DecayChain:
 
     @property
     def root(self):
-        return DecayChainNode(self.topology.root.tuple, self.resonances, self.final_state_qn, self.topology)
+        return DecayChainNode(self.topology.root, self.resonances, self.final_state_qn, self.topology)
 
     @property
     def chain_function(self):
@@ -193,6 +199,7 @@ class DecayChain:
         """
         Returns all LS couplings for the decay chain
         """
+        print(f"Generating LS couplings for {self.topology}")
         return {
             node.resonance.id: node.resonance.generate_ls_couplings(node.resonance.preserve_partity)
             for node in self.nodes

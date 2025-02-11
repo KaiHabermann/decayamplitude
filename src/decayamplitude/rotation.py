@@ -34,7 +34,7 @@ class Angular:
         self.angular_momentum = angular_momentum
     
     def __str__(self):
-        return f"J={self.angular_momentum}"
+        return f"J={self.value}"
     
     def __hash__(self) -> int:
         return hash(self.angular_momentum)
