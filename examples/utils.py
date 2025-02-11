@@ -6,6 +6,9 @@ def constant_lineshape(*args):
     return 1
 
 def BW_lineshape(mass):
+    # usually the function is called for a fixed set of points in the phasespace. 
+    # Thus we can give the mass values as fixed
+    # decayamplitude will provide l and s values per default for the resonances, but not the mass values
     def BW(l,s, gamma, m0):
         return 1 / (mass**2 - m0**2 + 1j * mass * gamma) 
     return BW
