@@ -144,6 +144,8 @@ def shortFourBodyAmplitudeBW():
 
     # for the gradient calculation we need to define a log likelihood function or something, that produces a single value
     def LL(*args):
+        # Warning: This is not the correct log likelihood function, but just a dummy
+        # The amplitudes do not come normalized, so this can not be used for fitting directly
         return np.sum(
             np.log(unpolarized(*args))
                 )
