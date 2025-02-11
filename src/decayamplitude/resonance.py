@@ -2,6 +2,7 @@ from decayangle.decay_topology import Node, HelicityAngles
 from decayamplitude.rotation import QN, Angular, clebsch_gordan, wigner_capital_d, convert_angular
 from typing import Union, Callable
 from collections import namedtuple
+from functools import cached_property
 
 LSTuple = namedtuple("LSTuple", ["l", "s"])
 
@@ -49,6 +50,59 @@ class Resonance:
     @property
     def name(self) -> Union[str, None]:
         return self.__name
+    
+    @cached_property
+    def sanitized_name(self) -> Union[str, None]:
+        replacements = [
+            ("*", "star"),
+            ("(", ""),
+            (")", ""),
+            ("[", ""),
+            ("]", ""),
+            ("{", ""),
+            ("}", ""),
+            (" ", "_"),
+            ("-", "_"),
+            ("+", "_"),
+            (".", "_"),
+            (",", "_"),
+            ("/", "_"),
+            ("\\", "_"),
+            ("^", "_"),
+            ("'", "_"),
+            ("\"", "_"),
+            ("~", "_"),
+            ("!", "_"),
+            ("?", "_"),
+            ("=", "_"),
+            (">", "_"),
+            ("<", "_"),
+            ("|", "_"),
+            ("&", "_"),
+            ("$", "_"),
+            ("#", "_"),
+            ("@", "_"),
+            ("%", "_"),
+            (";", "_"),
+            (":", "_"),
+            ("`", "_"),
+            ("´", "_"),
+            ("§", "_"),
+            ("°", "_"),
+            ("*", "_"),
+            ("µ", "u"),
+            ("ä", "ae"),
+            ("ö", "oe"),
+            ("ü", "ue"),
+            ("Ä", "Ae"),
+            ("Ö", "Oe"),
+            ("Ü", "Ue"),
+            ("ß", "ss"),
+        ]
+        name = self.__name
+        for replacement in replacements:
+            name = name.replace(*replacement)
+        return name
 
     @property
     def id(self) -> int:

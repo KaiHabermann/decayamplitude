@@ -122,7 +122,7 @@ class ChainCombiner:
                     if Resonance.get_instance(resonance_id).name is None:
                         name = f"COUPLING_ID_{resonance_id}_LS_{'_'.join([str(k) for k in key])}"
                     else:
-                        name = f"{Resonance.get_instance(resonance_id).name}_LS_{'_'.join([str(k) for k in key])}"
+                        name = f"{Resonance.get_instance(resonance_id).sanitized_name}_LS_{'_'.join([str(k) for k in key])}"
                     coupling_names.append(name) # we need only define a name 
                     coupling_structure[resonance_id][key] = name
             full_names = names + coupling_names
