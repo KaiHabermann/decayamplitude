@@ -267,7 +267,7 @@ class MultiChain(DecayChain):
         chains = product(*[resonances[key] for key in ordered_keys])
         return [
             {
-                key: chain[i]
+                key: chain[i].copy()
                 for i, key in enumerate(ordered_keys)
             }
             for chain in chains

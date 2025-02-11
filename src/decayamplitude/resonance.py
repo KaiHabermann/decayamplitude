@@ -89,6 +89,9 @@ class Resonance:
                 cls.__named_instances[obj.name] = obj
 
         return instance_id
+    
+    def copy(self):
+        return Resonance(self.node, quantum_numbers=self.quantum_numbers, lineshape=self.__lineshape, argnames=self.__parameter_names, name=self.__name, preserve_partity=self.preserve_partity)
 
     @property
     def lineshape(self) -> Callable:

@@ -1,6 +1,7 @@
 from decayamplitude.backend import numpy as np
 import decayamplitude
-from decayamplitude.chain import DecayChain
+from decayamplitude.chain import DecayChain, MultiChain
+from decayamplitude.combiner import ChainCombiner
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN
 
@@ -10,6 +11,8 @@ from decayangle.config import config as decayangle_config
 from decayangle.lorentz import LorentzTrafo
 
 from decayamplitude.rotation import wigner_capital_d
+
+from collections import defaultdict
 
 def constant_lineshape(*args):
     return 1
@@ -77,21 +80,10 @@ def make_four_vectors(phi_rf, theta_rf, psi_rf):
     momenta_23_rotated = tree1.root.transform(rotation, momenta)
     return momenta_23_rotated
 
-def test_threebody_1():
-    decayangle_config.sorting = "off" 
-    topology1 = Topology(
-        0,
-        decay_topology=((2,3), 1)
-    )
-
-    topology2 = Topology(
-        0,
-        decay_topology=((1, 2), 3)
-    )
-
+def resonances():
     resonances1 = {
-        (2,3): Resonance(Node((2, 3)), 0, -1, lineshape=constant_lineshape, argnames=[]),
-        0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[])
+    (2,3): Resonance(Node((2, 3)), 0, -1, lineshape=constant_lineshape, argnames=[]),
+    0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[])
     }
 
     resonances2 = {
@@ -108,10 +100,25 @@ def test_threebody_1():
         (2,3): Resonance(Node((2, 3)), 4, -1, lineshape=constant_lineshape, argnames=[]),
         0: Resonance(Node(0), 1, 1, lineshape=constant_lineshape, argnames=[])
     }
+    return resonances1, resonances2, resonances3, resonances_dpd
+
+def test_threebody_1():
+    decayangle_config.sorting = "off" 
+    topology1 = Topology(
+        0,
+        decay_topology=((2,3), 1)
+    )
+
+    topology2 = Topology(
+        0,
+        decay_topology=((1, 2), 3)
+    )
+
+    resonances1, resonances2, resonances3, resonances_dpd = resonances()
 
     from decayamplitude.backend import numpy as np
-    momenta = make_four_vectors(np.linspace(0,np.pi,10), np.linspace(0,np.pi,10), np.linspace(0,np.pi,10))
-    # momenta = make_four_vectors(0.3, np.arccos(0.4), 0.5)
+    # momenta = make_four_vectors(np.linspace(0,np.pi,10), np.linspace(0,np.pi,10), np.linspace(0,np.pi,10))
+    momenta = make_four_vectors(0.3, np.arccos(0.4), 0.5)
 
 
     final_state_qn = {
@@ -199,74 +206,92 @@ def test_threebody_1():
     }
 
 
-    total = 0
-    amp_dict = {}
-    amp_dict2 = {}
-    amp_dict3 = {}
-    amp_dict_dpd = {}
-
-    for lambdas in [
-        {1:1, 2:2, 3:0},
-        {1:1, 2:0, 3:0},
-        {1:1, 2:-2, 3:0},
-        {1:-1, 2:2, 3:0},
-        {1:-1, 2:0, 3:0},
-        {1:-1, 2:-2, 3:0}
-    ]:
-        for h0 in [-1, 1]:
-            l1, l2, l3 = lambdas[1], lambdas[2], lambdas[3]
-            amp = decay.chain_function(h0, lambdas=lambdas, arguments=arguments1)
-            amp2 = decay2.chain_function(h0, lambdas=lambdas, arguments=arguments2)
-            amp_dict[(h0, l1, l2, l3)] = amp
-            amp_dict2[(h0, l1, l2, l3)] = amp2
-            amp_dict3[(h0, l1, l2, l3)] = decay3.chain_function(h0, lambdas=lambdas, arguments=arguments3)
-            amp_dict_dpd[(h0, l1, l2, l3)] = decay_dpd.chain_function(h0, lambdas=lambdas, arguments=arguments_dpd)
-
-    def basis_change(dtc, rotation, final_state_qn):
-        """
-        Small helper function, which will perform a basis change on the dictionary of amplitudes.
-        One needs a rotation for all final state particles.
-        """
-        new_dtc = {}
-        for key, value in dtc.items():
-            l0, l1, l2, l3 = key
-            new_dtc[key] = sum(
-                dtc[(l0, l1_, l2_, l3_)]
-                * np.conj(wigner_capital_d(*(rotation[1]), final_state_qn[1].angular.value2, l1_, l1))
-                * np.conj(wigner_capital_d(*(rotation[2]), final_state_qn[2].angular.value2, l2_, l2))
-                * np.conj(wigner_capital_d(*(rotation[3]), final_state_qn[3].angular.value2, l3_, l3))
-                for l1_ in final_state_qn[1].angular.projections(True)
-                for l2_ in final_state_qn[2].angular.projections(True)
-                for l3_ in final_state_qn[3].angular.projections(True)
-            )
-        return new_dtc
-
-    def add_dict(dtc, dtc2):
-        return {
-            key: value + dtc2[key]
-            for key, value in dtc.items()
-        }
-
-    full_amp = add_dict(amp_dict, basis_change(amp_dict2, topology1.relative_wigner_angles(topology2, momenta), final_state_qn))
-    full_amp = add_dict(full_amp, basis_change(amp_dict3, topology1.relative_wigner_angles(topology2, momenta), final_state_qn))
-    full_amp = add_dict(full_amp, amp_dict_dpd)
-
-    def unpolarized(dtc):
-        return sum(
-            abs(value)**2
-            for value in dtc.values()
-        )
-
-    dpd_value = decay_dpd.chain_function(-1, lambdas={1:1, 2:2,3:0}, arguments=arguments_dpd)
-    print(dpd_value/2**0.5)
+    dpd_value = decay_dpd.matrix(-1, arguments_dpd)[(1, 2,0)]
     
     # this is a reference value copied from the output of the decayangle code
     # We can use this to harden against mistakes in the decayamplitude code
-    print((-0.14315554700441074 + 0.12414558894503328j))
+    assert np.allclose(dpd_value/2**0.5, (-0.14315554700441074 + 0.12414558894503328j))
+    # assert np.allclose(unpolarized(full_amp), unpolarized(full_amp)[0])
 
-    print(unpolarized(full_amp))
-    assert np.allclose(unpolarized(full_amp), unpolarized(full_amp)[0])
+def testShortThreeBodyAmplitude():
+    """
+    We can also combine the chains in a shorter way, by using the MultiChain class
+    """
+    final_state_qn = {
+            1: QN(1, 1),
+            2: QN(2, 1),
+            3: QN(0, 1)
+        }
+    resonances1, resonances2, resonances3, resonances_dpd = resonances()
+    momenta = make_four_vectors(1,2,np.linspace(0,np.pi,10))
+    topology1 = Topology(
+        0,
+        decay_topology=((2,3), 1)
+    )
+    topology2 = Topology(
+        0,
+        decay_topology=((1, 2), 3)
+    )
+
+    chain1 = MultiChain.from_chains([
+        DecayChain(
+            topology = topology1,
+            resonances = resonances1,
+            momenta = momenta,
+            final_state_qn = final_state_qn
+        ),
+        DecayChain(
+            topology = topology1,
+            resonances = resonances_dpd,
+            momenta = momenta,
+            final_state_qn = final_state_qn
+        )
+    ])
+
+    chain2 = MultiChain.from_chains([
+        DecayChain(
+            topology = topology2,
+            resonances = resonances2,
+            momenta = momenta,
+            final_state_qn = final_state_qn,
+        ),
+        DecayChain(
+            topology = topology2,
+            resonances = resonances3,
+            momenta = momenta,
+            final_state_qn = final_state_qn
+        )
+    ])
+
+    merged_resonances = defaultdict(list)
+    for key, resonance in resonances3.items():
+        merged_resonances[key].append(resonance)
+    for key, resonance in resonances2.items():
+        merged_resonances[key].append(resonance)
+    merged_resonances = dict(merged_resonances)
+
+    merged_resonances[0] = [merged_resonances[0][0]]
+
+    full = ChainCombiner([chain1, chain2])
+    arguments = full.generate_ls_couplings()
+
+    matrix1 = full.combined_matrix(-1, arguments)
+    matrix2 = full.combined_matrix(1, arguments)
+
+    unpolarized, argnames = full.unpolarized_amplitude(full.generate_ls_couplings())
+    assert np.allclose(sum(abs(v)**2 for v in matrix1.values()) + sum(abs(v)**2 for v in matrix2.values()), unpolarized(*([1] * len(argnames))))
+    assert np.allclose(unpolarized(*([1] * len(argnames))), unpolarized(*([1] * len(argnames)))[0])
+
+    full2 = ChainCombiner([chain1, MultiChain(topology2, momenta=momenta, resonances=merged_resonances, final_state_qn=final_state_qn)])
+  
+    unpolarized2, argnames2 = full2.unpolarized_amplitude(full2.generate_ls_couplings())
+
+    # initial orientation should not affect the result
+    assert np.allclose(unpolarized2(*([1] * len(argnames))), unpolarized2(*([1] * len(argnames)))[0])
+
+    assert np.allclose(unpolarized2(*([1] * len(argnames))) , unpolarized(*([1] * len(argnames))))
 
 
 if __name__ == "__main__":
+    testShortThreeBodyAmplitude()
     test_threebody_1()
