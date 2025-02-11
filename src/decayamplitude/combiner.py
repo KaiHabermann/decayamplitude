@@ -1,7 +1,7 @@
 from decayamplitude.chain import DecayChain, AlignedChain, MultiChain, AlignedMultiChain
 from decayangle.decay_topology import Topology
 from typing import Union, Callable
-from decayamplitude.resonance import LSTuple
+from decayamplitude.resonance import LSTuple, Resonance
 
 
 class ChainCombiner:
@@ -119,7 +119,10 @@ class ChainCombiner:
             for resonance_id, coupling_dict in ls_couplings.items():
                 coupling_structure[resonance_id] = {}
                 for key, _ in coupling_dict["ls_couplings"].items():
-                    name = f"COUPLING_ID_{resonance_id}_LS_{'_'.join([str(k) for k in key])}"
+                    if Resonance.get_instance(resonance_id).name is None:
+                        name = f"COUPLING_ID_{resonance_id}_LS_{'_'.join([str(k) for k in key])}"
+                    else:
+                        name = f"{Resonance.get_instance(resonance_id).name}_LS_{'_'.join([str(k) for k in key])}"
                     coupling_names.append(name) # we need only define a name 
                     coupling_structure[resonance_id][key] = name
             full_names = names + coupling_names

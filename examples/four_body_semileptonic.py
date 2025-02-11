@@ -30,9 +30,9 @@ def resonances_BW(momenta):
         (1,2): [
             # Here the hadronic resonances go+
             # These will decay strong, so we need to conserve parity
-            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_1", "width_resonance_1"], preserve_partity=True),
-            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_2", "width_resonance_2"], preserve_partity=True),
-            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_3", "width_resonance_3"], preserve_partity=True),
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_1", "width_resonance_1"], preserve_partity=True, name="D*1"),
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_2", "width_resonance_2"], preserve_partity=True, name="D*2"),
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_3", "width_resonance_3"], preserve_partity=True, name="D*3"),
             # Resonance(Node((1, 2)), quantum_numbers=QN(J, P), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_n", "width_resonance_n"], preserve_partity=True), # template for further resonances
             ],
         # This is the W boson. It is defined as a resonance, but we assue a constant lineshape in this mass regime. One could use a more complicated one aswell.
@@ -87,6 +87,10 @@ def shortFourBodyAmplitudeBW():
         full.generate_ls_couplings() # This is a helper function to generate the couplings for the hadronic system, if you want to restrict them, you will have to do it manually.
                                     # Alternatively you can also restrict the couplings in the fitter later.      
         )
+    # argnames are the names of the arguments of the function, which are the masses and widths of the resonances and the couplings
+    # The order of argnames is the order of the arguments in the function
+    # The function can be called with positional arguments, or with keyword arguments
+    # so unpolarized(*[1, 2, 3, 4, 5, 6]) is the same as unpolarized(mass_resonance_1=1, width_resonance_1=2, mass_resonance_2=3, width_resonance_2=4, mass_resonance_3=5, width_resonance_3=6), omitting the couplings
     print(argnames)
 
     # an issue with jax, where the internal caching structure needs to be prewarmed, so that in the compilation step the correct types are inferred

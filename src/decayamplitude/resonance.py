@@ -11,7 +11,7 @@ class Resonance:
     __parameter_names = {}
 
     @classmethod
-    def get_instance(cls, id:int):
+    def get_instance(cls, id:int) -> "Resonance":
         return cls.__instances[id]
 
     def __init__(self, node:Node, spin:Union[Angular, int] = None, parity:int = None, quantum_numbers:QN = None, lineshape = None, argnames = None, name = None, preserve_partity=True) -> None:
