@@ -201,7 +201,7 @@ class Resonance:
         possible_states = set(QN.generate_L_states(qn0, qn1, qn2))
         if not conserve_parity:
             qn0_bar = QN(qn0.angular.angular_momentum, -qn0.parity)
-            possible_states.union(set(QN.generate_L_states(qn0_bar, qn1, qn2)))
+            possible_states = possible_states.union(set(QN.generate_L_states(qn0_bar, qn1, qn2)))
         if len(possible_states) == 0:
             raise ValueError(f"No possible states for resonance {self.name} at {self.node} with {qn0}, {qn1}, {qn2}.")
         return {

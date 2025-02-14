@@ -148,7 +148,7 @@ class QN:
         """
         for S in state1.angular.couple(state2.angular):
             for L in S.couple(state0.angular):
-                if L.parity * state1.parity * state2.parity == state0.parity:
+                if (L.parity * state1.parity * state2.parity) == state0.parity:
                     yield (L, S)
     
     def projections(self, return_int=False):
