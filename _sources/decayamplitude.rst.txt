@@ -1,0 +1,61 @@
+decayamplitude package
+======================
+
+Submodules
+----------
+
+decayamplitude.arguments module
+-------------------------------
+
+.. automodule:: decayamplitude.arguments
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+decayamplitude.backend module
+-----------------------------
+
+.. automodule:: decayamplitude.backend
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+decayamplitude.chain module
+---------------------------
+
+.. automodule:: decayamplitude.chain
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+decayamplitude.combiner module
+------------------------------
+
+.. automodule:: decayamplitude.combiner
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+decayamplitude.resonance module
+-------------------------------
+
+.. automodule:: decayamplitude.resonance
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+decayamplitude.rotation module
+------------------------------
+
+.. automodule:: decayamplitude.rotation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: decayamplitude
+   :members:
+   :undoc-members:
+   :show-inheritance:
