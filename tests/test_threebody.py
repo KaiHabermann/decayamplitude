@@ -154,6 +154,14 @@ def test_threebody_1():
         final_state_qn = final_state_qn
     )
 
+    decay_dpd_m = DecayChain(
+        topology = topology1,
+        resonances = resonances_dpd,
+        momenta = momenta,
+        final_state_qn = final_state_qn,
+        convention = "minus_phi"
+    )
+
     arguments1 = {
         resonances1[(2,3)].id : {
             "couplings":{
@@ -207,10 +215,25 @@ def test_threebody_1():
 
 
     dpd_value = decay_dpd.matrix(-1, arguments_dpd)[(1, 2,0)]
-    
+    dpd_value_m = decay_dpd_m.matrix(-1, arguments_dpd)[(1, 2,0)]
+
+    value3 = decay3.matrix(-1, arguments3)[(1, 2, 0)]
     # this is a reference value copied from the output of the decayangle code
     # We can use this to harden against mistakes in the decayamplitude code
-    assert np.allclose(dpd_value/2**0.5, (-0.14315554700441074 + 0.12414558894503328j))
+    assert np.allclose(dpd_value, (-0.14315554700441074 + 0.12414558894503328j))
+
+    print(value3)
+    assert np.allclose(
+        value3, -0.49899891547281655 + 0.030820810874496913j
+    )
+
+    assert np.allclose(
+        dpd_value_m, -0.03883258888101088 + 0.1854660829732478j
+    )
+
+    # assert np.allclose(
+    #     terms_2_m[(-1, 1, 2, 0)][-1], -0.37859261634645197 + 0.32652330831650717j
+    # )
     # assert np.allclose(unpolarized(full_amp), unpolarized(full_amp)[0])
 
 def testShortThreeBodyAmplitude():

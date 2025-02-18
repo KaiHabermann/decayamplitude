@@ -1,4 +1,4 @@
-from typing import Union, Optional, Callable
+from typing import Union, Optional, Callable, Literal
 from itertools import product
 from functools import cached_property
 
@@ -35,7 +35,7 @@ class DecayChainNode:
         self.convention = convention
             
         self.daughters = [
-                    DecayChainNode(daughter, resonances, self.final_state_qn, topology)
+                    DecayChainNode(daughter, resonances, self.final_state_qn, topology, convention=self.convention)
                     for daughter in self.node.daughters
             ]
         
@@ -123,12 +123,12 @@ class DecayChain:
     Class to represent a decay chain. This is a topology in connection with a set of resonances. One resonance for each internal node in the topology.
     """
 
-    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN]) -> None:
+    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], convention:Literal["helicity", "minus_phi"]="helicity") -> None:
         self.topology = topology
         self.resonances = resonances
         self.momenta = momenta
         self.final_state_qn = final_state_qn
-        self.nodes
+        self.convention = convention
 
         self.root_resonance = self.resonances.get(self.topology.root.value)
         if self.root_resonance is None:
@@ -149,7 +149,7 @@ class DecayChain:
     @property
     def nodes(self):
         return list(
-            DecayChainNode(node, self.resonances, self.final_state_qn, self.topology)
+            DecayChainNode(node, self.resonances, self.final_state_qn, self.topology, self.convention)
             for node in self.topology.nodes.values()
         )
     
@@ -159,11 +159,11 @@ class DecayChain:
 
     @cached_property
     def helicity_angles(self):
-        return self.topology.helicity_angles(momenta=self.momenta)
+        return self.topology.helicity_angles(momenta=self.momenta, convention=self.convention)
 
     @property
     def root(self):
-        return DecayChainNode(self.topology.root, self.resonances, self.final_state_qn, self.topology)
+        return DecayChainNode(self.topology.root, self.resonances, self.final_state_qn, self.topology, self.convention)
 
     @property
     def chain_function(self):
@@ -173,7 +173,8 @@ class DecayChain:
                  amplitude
                 for amplitude in self.root.amplitude(h0, lambdas, self.helicity_angles, arguments)
             ]
-            return sum(
+            prefactor = 1/(self.root.resonance.quantum_numbers.angular.value2 + 1)**0.5
+            return prefactor * sum(
                amplitudes
             )
 
@@ -217,7 +218,7 @@ class DecayChain:
         return list(set(resonance_parameter_names))
 
 class AlignedChain(DecayChain):
-    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], reference:Union[Topology, DecayChain], wigner_rotation: dict[tuple, WignerAngles]= None) -> None:
+    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], reference:Union[Topology, DecayChain], wigner_rotation: dict[tuple, WignerAngles]= None, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
         self.topology = topology
         if wigner_rotation is None:
@@ -225,7 +226,7 @@ class AlignedChain(DecayChain):
         else:
             self.wigner_rotation = wigner_rotation
 
-        super().__init__(topology, resonances, momenta, final_state_qn)
+        super().__init__(topology, resonances, momenta, final_state_qn, convention)
         # we want the tuple versions of the helicities, since we use them as tuples
         self.wigner_dict = {
             key: {
@@ -287,20 +288,47 @@ class MultiChain(DecayChain):
 
         return new_obj
 
-    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN], resonances: Optional[dict[tuple, tuple[Resonance]]]=None, chains: Optional[list[DecayChain]]=None) -> None:
+    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN], resonances: Optional[dict[tuple, tuple[Resonance]]]=None, chains: Optional[list[DecayChain]]=None, convention:Optional[Literal["minus_phi", "helicity"]]="helicity") -> None:
+        """
+        Initializes a MultiChain object. The object will contain a list of DecayChain objects.
+
+        Parameters:
+        topology: Topology
+            The topology of the decay chain
+        momenta: dict
+            The momenta of the decay chain
+        final_state_qn: dict[tuple, QN]
+            The quantum numbers of the final state particles
+        resonances: dict[tuple, tuple[Resonance]]
+            A dictionary with a list of resonances for each isobar
+        chains: list[DecayChain]
+            A list of DecayChain objects
+        convention: str
+            The convention of the decay chain. Default is "helicity"
+        """
+
         if chains is not None:
             self.chains = chains
+            # I will stick with a default value for the convention. It will have no effect if chains are provided
+            # if convention is not None:
+            #     raise ValueError("Convention must not be set if chains are provided directly")
+            if not all(chain.convention == chains[0].convention for chain in chains):
+                raise ValueError("All chains must have the same convention")
+            self.convention = chains[0].convention
         elif resonances is not None:
             if any(node.value not in resonances and node.tuple not in resonances and not node.final_state for node in topology.nodes.values()):
                 raise ValueError(f"Not all nodes have a resonance assigned: {resonances.keys()}, {topology.nodes.keys()}")
             self.chains = [
-                DecayChain(topology, chain_definition, momenta, final_state_qn)
+                DecayChain(topology, chain_definition, momenta, final_state_qn, convention)
                 for chain_definition in type(self).create_chains(resonances)
             ]
+            self.convention = convention
         else:
             raise ValueError("Either resonances or chains must be provided")
         if chains is not None and resonances is not None:
             raise ValueError("Either resonances or chains must be provided")
+
+        
 
     @property
     def chain_function(self) -> Callable:
@@ -396,11 +424,11 @@ class AlignedMultiChain(MultiChain):
             reference
         )
 
-    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN], reference:Union[Topology, DecayChain], resonances: Optional[dict[tuple, tuple[Resonance]]] = None, chains: Optional[list[DecayChain]] = None, wigner_rotation: dict[tuple, WignerAngles]= None) -> None:
-        super().__init__(topology, momenta, final_state_qn, resonances=resonances, chains=chains)
+    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN], reference:Union[Topology, DecayChain], resonances: Optional[dict[tuple, tuple[Resonance]]] = None, chains: Optional[list[DecayChain]] = None, wigner_rotation: dict[tuple, WignerAngles]= None, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
+        super().__init__(topology, momenta, final_state_qn, resonances=resonances, chains=chains, convention=convention)
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
         if wigner_rotation is None:
-            self.wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta)
+            self.wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention)
         else:
             self.wigner_rotation = wigner_rotation
 

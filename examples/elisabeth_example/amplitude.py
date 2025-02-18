@@ -1,5 +1,5 @@
 from generate_momenta import make_four_vectors_from_dict
-
+from itertools import product
 from decayangle.decay_topology import Topology, TopologyCollection, HelicityAngles
 from decayangle.lorentz import LorentzTrafo
 from decayangle.config import config as decayangle_config
@@ -80,6 +80,7 @@ class Amplitude:
                 resonances = self.resonances,
                 momenta = momenta,
                 final_state_qn = self.final_state_qn,
+                convention="helicity",
             )
         self.combiner = ChainCombiner([self.chain, ])
         
@@ -90,40 +91,102 @@ class Amplitude:
         matrix_function, matrix_argnames = self.combiner.matrix_function(self.combiner.generate_couplings())
         print(matrix_argnames)
         
-        couplings = {
-            "Lc_H_-3_0": 1,
+        couplings_m1_m1 = {
+            "Lc_H_-3_0": 0,
             "Lc_H_-1_0": 1,
+            "Lc_H_1_0": 0,
+            "Lc_H_3_0": 0,
+            "L_1520_H_1_0": 0,
+            "L_1520_H_-1_0": -1,
+        }
+        couplings_1_m1 = {
+            "Lc_H_-3_0": 0,
+            "Lc_H_-1_0": 0,
             "Lc_H_1_0": 1,
-            "Lc_H_3_0": 1,
+            "Lc_H_3_0": 0,
+            "L_1520_H_1_0": 0,
+            "L_1520_H_-1_0": -1,
+        }
+        couplings_m1_1 = {
+            "Lc_H_-3_0": 0,
+            "Lc_H_-1_0": 1,
+            "Lc_H_1_0": 0,
+            "Lc_H_3_0": 0,
             "L_1520_H_1_0": -1,
-            "L_1520_H_-1_0": 1,
+            "L_1520_H_-1_0": 0,
+        }
+        couplings_1_1 = {
+            "Lc_H_-3_0": 0,
+            "Lc_H_-1_0": 0,
+            "Lc_H_1_0": 1,
+            "Lc_H_3_0": 0,
+            "L_1520_H_1_0": -1,
+            "L_1520_H_-1_0": 0,
+        }
+        # (hlc, l1520)
+        self.value = {
+            ( 1, -1, -1): matrix_function( 1, **couplings_m1_m1),
+            ( 1, -1,  1): matrix_function( 1, **couplings_m1_1),
+            ( 1,  1, -1): matrix_function( 1, **couplings_1_m1),
+            ( 1,  1,  1): matrix_function( 1, **couplings_1_1),
+
+            (-1, -1, -1): matrix_function(-1, **couplings_m1_m1),
+            (-1, -1,  1): matrix_function(-1, **couplings_m1_1),
+            (-1,  1, -1): matrix_function(-1, **couplings_1_m1),
+            (-1,  1,  1): matrix_function(-1, **couplings_1_1)
         }
 
-        # couplings = {
-
-        # }
-
-        for helicities, amplitude in matrix_function(1, **couplings).items():
-            print(helicities, amplitude)
-        for helicities, amplitude in matrix_function(-1, **couplings).items():
-            print(helicities, amplitude)
-        self.value = None
 
 
-    
+def parse_complex(s):
+    try: 
+        return complex(s)
+    except Exception as e:
+        print(s)
+        raise e
 
+
+def get_result_amplitude(dtc, a, b, c, d):
+    key = f"L(1520)_{{{a}, {b}}}"
+    dtc = dtc[key]
+
+    dtc = {
+        k: parse_complex(v.replace("im", "j").replace("+ -", "-").replace(" ", ""))
+        for k, v in dtc.items()
+    }
+    return dtc[f"A[{c},{d}]"]
+
+
+def r_phi(comp):
+    return f"{abs(comp)} {float(np.angle(comp))}"
 
 def test_elisabeth():
     import json
 
-    path = "examples/test_data/Parsed_ccp_kinematics_100events.json"
+    path = "examples/test_data\Parsed_ccp_kinematics_100events.json"
+    result_path = "examples/test_data/cpp_100_events_sign2pi_unmodified.json"
     with open(path, "r") as f:
         data = json.load(f)
+    with open(result_path, "r") as f:
+        result = json.load(f)
+
+    
     for k, dtc in data.items():
         kwargs = {k: v for k, v in dtc["kinematic"].items() if k != "mkpisq" }
         momenta = make_four_vectors_from_dict(**dtc["chain_variables"]["Kpi"], **kwargs)
         amplitude = Amplitude(momenta)
-        print(amplitude.value)
+        for hl1520, pi, hlc, hp in product([1, -1], [0], [1, -1], [1, -1]):
+            print(hl1520, pi, hlc, hp)
+            print(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)] / 4**0.5, r_phi(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)]/ 4**0.5))
+            print(get_result_amplitude(result[k],  hl1520, pi, hlc, hp), r_phi(get_result_amplitude(result[k],  hl1520, pi, hlc, hp)))
+            print(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)] / 4**0.5 / get_result_amplitude(result[k],  hl1520, pi, hlc, hp))
+            # print(get_result_amplitude(result[k], hlc , pi, hl1520, hp))
+
+
+        
+        # res1 = get_result_amplitude(result[k], 1, 0)
+        # res2 = get_result_amplitude(result[k], -1, 0)
+
         exit(0)
 
 if __name__ =="__main__":

@@ -167,7 +167,7 @@ class Resonance:
             clebsch_gordan(j1, h1, j2, -h2, s, h1- h2) *
             clebsch_gordan(l, 0, s, h1 - h2, self.quantum_numbers.angular.value2, h1 - h2)
             for (l, s), coupling in couplings.items()
-        ) * (-1) ** ((j2 - h2) / 2)
+        )
 
 
     def __construct_couplings(self, arguments:dict) -> dict[LSTuple, float]:
@@ -211,15 +211,22 @@ class Resonance:
                 }
             }
     
+    def direct_helicity_coupling(self, arguments, h1, h2):
+        return arguments[self.id]["couplings"][(h1, h2)] * self.lineshape(h1, h2, *self.argument_list(arguments))
+    
     @convert_angular
     def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict):
         if self.scheme == "ls":
             couplings = self.__construct_couplings(arguments)
         # lineshape_args = self.__construct_arguments(arguments)
             coupling = self.helicity_from_ls(h0, h1, h2, couplings ,arguments)
+        elif self.scheme == "helicity":
+            coupling = self.direct_helicity_coupling(arguments, h1, h2)
         else:
-            coupling = arguments[self.id]["couplings"][(h1, h2)]
-        return coupling
+            raise ValueError(f"Scheme must be either 'ls' or 'helicity' but is {self.scheme}")
+        # particle 2 convention from Jacob-Wick is used!
+        j2 = self.daughter_qn[1].angular.value2
+        return coupling * (-1) ** ((j2 - h2) / 2) 
     
     def register_lineshape(self, lineshape_function:Callable, parameter_names: list[str]):
         if self.__lineshape is not None:
