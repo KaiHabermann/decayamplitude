@@ -1,6 +1,6 @@
 from decayamplitude.backend import numpy as np
 import decayamplitude
-from decayamplitude.chain import DecayChain, MultiChain
+from decayamplitude.chain import DecayChain, MultiChain, AlignedChain
 from decayamplitude.combiner import ChainCombiner
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN
@@ -217,19 +217,39 @@ def test_threebody_1():
     dpd_value = decay_dpd.matrix(-1, arguments_dpd)[(1, 2,0)]
     dpd_value_m = decay_dpd_m.matrix(-1, arguments_dpd)[(1, 2,0)]
 
-    value3 = decay3.matrix(-1, arguments3)[(1, 2, 0)]
+    aligned_decay3 = AlignedChain(
+        topology = topology2,
+        resonances = resonances3,
+        momenta = momenta,
+        final_state_qn = final_state_qn,
+        reference=decay_dpd,
+        convention="helicity"
+    )
+
+    aligned_decay3_m = AlignedChain(
+        topology = topology2,
+        resonances = resonances3,
+        momenta = momenta,
+        final_state_qn = final_state_qn,
+        reference=decay_dpd_m,
+        convention="minus_phi"
+    )
+    value3 = aligned_decay3.aligned_matrix(-1, arguments3)[(1, 2, 0)]
+    value3_m = aligned_decay3_m.aligned_matrix(-1, arguments3)[(1, 2, 0)]
     # this is a reference value copied from the output of the decayangle code
     # We can use this to harden against mistakes in the decayamplitude code
     assert np.allclose(dpd_value, (-0.14315554700441074 + 0.12414558894503328j))
-
-    print(value3)
-    assert np.allclose(
-        value3, -0.49899891547281655 + 0.030820810874496913j
-    )
-
     assert np.allclose(
         dpd_value_m, -0.03883258888101088 + 0.1854660829732478j
     )
+    assert np.allclose(
+        value3, -0.49899891547281655 + 0.030820810874496913j
+    )
+    assert np.allclose(
+        value3_m, -0.37859261634645197 + 0.32652330831650717j
+    )
+
+
 
     # assert np.allclose(
     #     terms_2_m[(-1, 1, 2, 0)][-1], -0.37859261634645197 + 0.32652330831650717j

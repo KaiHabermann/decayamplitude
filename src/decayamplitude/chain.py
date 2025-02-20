@@ -221,12 +221,15 @@ class AlignedChain(DecayChain):
     def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], reference:Union[Topology, DecayChain], wigner_rotation: dict[tuple, WignerAngles]= None, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
         self.topology = topology
-        if wigner_rotation is None:
-            self.wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta)
-        else:
-            self.wigner_rotation = wigner_rotation
 
         super().__init__(topology, resonances, momenta, final_state_qn, convention)
+        if wigner_rotation is None:
+            if isinstance(reference, DecayChain):
+                if reference.convention != convention:
+                    raise ValueError(f"Reference and chain must have the same convention. Found reference: {reference.convention} and self: {convention}!")
+            self.wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention)
+        else:
+            self.wigner_rotation = wigner_rotation
         # we want the tuple versions of the helicities, since we use them as tuples
         self.wigner_dict = {
             key: {
