@@ -105,14 +105,14 @@ class Amplitude:
             "Lc_H_1_0": 1,
             "Lc_H_3_0": 0,
             "L_1520_H_1_0": 0,
-            "L_1520_H_-1_0": -1,
+            "L_1520_H_-1_0": 1,
         }
         couplings_m1_1 = {
             "Lc_H_-3_0": 0,
             "Lc_H_-1_0": 1,
             "Lc_H_1_0": 0,
             "Lc_H_3_0": 0,
-            "L_1520_H_1_0": -1,
+            "L_1520_H_1_0": 1,
             "L_1520_H_-1_0": 0,
         }
         couplings_1_1 = {
@@ -120,7 +120,7 @@ class Amplitude:
             "Lc_H_-1_0": 0,
             "Lc_H_1_0": 1,
             "Lc_H_3_0": 0,
-            "L_1520_H_1_0": -1,
+            "L_1520_H_1_0": 1,
             "L_1520_H_-1_0": 0,
         }
         # (hlc, l1520)
@@ -177,9 +177,9 @@ def test_elisabeth():
         amplitude = Amplitude(momenta)
         for hl1520, pi, hlc, hp in product([1, -1], [0], [1, -1], [1, -1]):
             print(hl1520, pi, hlc, hp)
-            print(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)] / 4**0.5, r_phi(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)]/ 4**0.5))
+            print(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)], r_phi(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)]))
             print(get_result_amplitude(result[k],  hl1520, pi, hlc, hp), r_phi(get_result_amplitude(result[k],  hl1520, pi, hlc, hp)))
-            print(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)] / 4**0.5 / get_result_amplitude(result[k],  hl1520, pi, hlc, hp))
+            print(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)] / get_result_amplitude(result[k],  hl1520, pi, hlc, hp))
             # print(get_result_amplitude(result[k], hlc , pi, hl1520, hp))
 
 
