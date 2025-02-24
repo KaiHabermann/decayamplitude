@@ -7,7 +7,7 @@ import numpy as np
 
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN, Angular
-from decayamplitude.chain import DecayChain, MultiChain
+from decayamplitude.chain import DecayChain, MultiChain, AlignedChain
 from decayamplitude.combiner import ChainCombiner
 
 from decayamplitude.backend import numpy as np
@@ -75,21 +75,20 @@ class Amplitude:
             3: QN(0, 1),
         }
         self.topology = Topology(0, decay_topology=((1, 2), 3))
-        self.chain = DecayChain(
+        self.reference_topology = Topology(0, decay_topology=((2, 3), 1))
+        self.helicity_angles = self.topology.helicity_angles(momenta=self.momenta)
+        self.chain = AlignedChain(
                 topology = self.topology,
+                reference= self.reference_topology,
                 resonances = self.resonances,
                 momenta = momenta,
                 final_state_qn = self.final_state_qn,
                 convention="helicity",
             )
-        self.combiner = ChainCombiner([self.chain, ])
         
-        for k,v in self.combiner.generate_couplings().items():
-            print(k)
-            for hel_tuple, val in v["couplings"].items():
-                print(hel_tuple, val)
+        self.combiner = ChainCombiner([self.chain, ])
+
         matrix_function, matrix_argnames = self.combiner.matrix_function(self.combiner.generate_couplings())
-        print(matrix_argnames)
         
         couplings_m1_m1 = {
             "Lc_H_-3_0": 0,
@@ -97,7 +96,7 @@ class Amplitude:
             "Lc_H_1_0": 0,
             "Lc_H_3_0": 0,
             "L_1520_H_1_0": 0,
-            "L_1520_H_-1_0": -1,
+            "L_1520_H_-1_0":  1,
         }
         couplings_1_m1 = {
             "Lc_H_-3_0": 0,
@@ -112,7 +111,7 @@ class Amplitude:
             "Lc_H_-1_0": 1,
             "Lc_H_1_0": 0,
             "Lc_H_3_0": 0,
-            "L_1520_H_1_0": 1,
+            "L_1520_H_1_0":  1,
             "L_1520_H_-1_0": 0,
         }
         couplings_1_1 = {
@@ -120,20 +119,101 @@ class Amplitude:
             "Lc_H_-1_0": 0,
             "Lc_H_1_0": 1,
             "Lc_H_3_0": 0,
-            "L_1520_H_1_0": 1,
+            "L_1520_H_1_0":  1,
             "L_1520_H_-1_0": 0,
         }
-        # (hlc, l1520)
-        self.value = {
-            ( 1, -1, -1): matrix_function( 1, **couplings_m1_m1),
-            ( 1, -1,  1): matrix_function( 1, **couplings_m1_1),
-            ( 1,  1, -1): matrix_function( 1, **couplings_1_m1),
-            ( 1,  1,  1): matrix_function( 1, **couplings_1_1),
 
-            (-1, -1, -1): matrix_function(-1, **couplings_m1_m1),
-            (-1, -1,  1): matrix_function(-1, **couplings_m1_1),
-            (-1,  1, -1): matrix_function(-1, **couplings_1_m1),
-            (-1,  1,  1): matrix_function(-1, **couplings_1_1)
+        arguments_1_1 = {
+            L_1520.id: {
+                    "couplings": {
+                (1, 0) : 1/ (4)**0.5,
+                (-1, 0) : 0,
+            }},
+            Lc.id: {
+                    "couplings": {
+                (1, 0) : 1,
+                (-1, 0) : 0,
+                (3, 0) : 0,
+                (-3, 0) : 0,
+            }
+            }
+        }
+        arguments_m1_1 = {
+            L_1520.id: {
+                    "couplings": {
+                (1, 0) : 1/ (4)**0.5,
+                (-1, 0) : 0,
+            }},
+            Lc.id: {
+                    "couplings": {
+                (1, 0) : 0,
+                (-1, 0) : 1,
+                (3, 0) : 0,
+                (-3, 0) : 0,
+            }
+            }
+        }
+
+        arguments_1_m1 = {
+            L_1520.id: {
+                    "couplings": {
+                (1, 0) : 0,
+                (-1, 0) : 1/ (4)**0.5,
+            }
+            },
+            Lc.id: {
+                    "couplings": {
+                (1, 0) : 1,
+                (-1, 0) : 0,
+                (3, 0) : 0,
+                (-3, 0) : 0,
+            }
+            }
+        }
+
+        arguments_m1_m1 = {
+            L_1520.id: {
+                    "couplings": {
+                    (1, 0) : 0,
+                    (-1, 0) : 1 / (4)**0.5,
+                }
+            },
+            Lc.id:{
+                "couplings":  {
+                (1, 0) : 0,
+                (-1, 0) : 1,
+                (3, 0) : 0,
+                (-3, 0) : 0,
+            }
+            }
+        }
+
+
+
+
+        aligned_matrix = self.chain.aligned_matrix
+        # (hlc, l1520)
+        # self.value = {
+        #     ( 1, -1, -1): matrix_function( 1, **couplings_m1_m1),
+        #     ( 1, -1,  1): matrix_function( 1, **couplings_m1_1),
+        #     ( 1,  1, -1): matrix_function( 1, **couplings_1_m1),
+        #     ( 1,  1,  1): matrix_function( 1, **couplings_1_1),
+
+        #     (-1, -1, -1): matrix_function(-1, **couplings_m1_m1),
+        #     (-1, -1,  1): matrix_function(-1, **couplings_m1_1),
+        #     (-1,  1, -1): matrix_function(-1, **couplings_1_m1),
+        #     (-1,  1,  1): matrix_function(-1, **couplings_1_1)
+        # }
+        self.value = {
+            (1, -1, -1): aligned_matrix(1, arguments_m1_m1),
+            (1, -1, 1): aligned_matrix(1, arguments_m1_1),
+            (1, 1, -1): aligned_matrix(1, arguments_1_m1),
+            (1, 1, 1): aligned_matrix(1, arguments_1_1),
+
+            (-1, -1, -1): aligned_matrix(-1, arguments_m1_m1),
+            (-1, -1, 1): aligned_matrix(-1, arguments_m1_1),
+            (-1, 1, -1): aligned_matrix(-1, arguments_1_m1),
+            (-1, 1, 1): aligned_matrix(-1, arguments_1_1)
         }
 
 
@@ -154,12 +234,13 @@ def get_result_amplitude(dtc, a, b, c, d):
         k: parse_complex(v.replace("im", "j").replace("+ -", "-").replace(" ", ""))
         for k, v in dtc.items()
     }
-    return dtc[f"A[{c},{d}]"]
+    return dtc[f"A[{c},{d}]"], f"L(1520)_{{{a}, {b}}} A[{c},{d}]"
 
 
 def r_phi(comp):
     return f"{abs(comp)} {float(np.angle(comp))}"
 
+from decayamplitude.rotation import wigner_capital_d
 def test_elisabeth():
     import json
 
@@ -176,10 +257,19 @@ def test_elisabeth():
         momenta = make_four_vectors_from_dict(**dtc["chain_variables"]["Kpi"], **kwargs)
         amplitude = Amplitude(momenta)
         for hl1520, pi, hlc, hp in product([1, -1], [0], [1, -1], [1, -1]):
-            print(hl1520, pi, hlc, hp)
-            print(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)], r_phi(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)]))
-            print(get_result_amplitude(result[k],  hl1520, pi, hlc, hp), r_phi(get_result_amplitude(result[k],  hl1520, pi, hlc, hp)))
-            print(amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)] / get_result_amplitude(result[k],  hl1520, pi, hlc, hp))
+            el, string = get_result_amplitude(result[k],  hl1520, pi, hlc, hp)
+            kai = amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)]
+            if not np.allclose(el, kai, atol=0.04):
+                print(f"{hlc=}, {hl1520=},  {hp=} string = {string}")
+                print("Rphi",r_phi(el), r_phi(kai))
+                print("value",el, kai)
+                print("Ratio", el / kai)
+                print()
+            else:
+                # continue
+                print("OK", f"{hl1520=}, {hlc=}, {hp=} string = {string}")
+
+           
             # print(get_result_amplitude(result[k], hlc , pi, hl1520, hp))
 
 
