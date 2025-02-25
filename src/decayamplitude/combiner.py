@@ -2,7 +2,7 @@ from decayamplitude.chain import DecayChain, AlignedChain, MultiChain, AlignedMu
 from decayangle.decay_topology import Topology
 from typing import Union, Callable
 from decayamplitude.resonance import LSTuple, Resonance
-
+from decayamplitude.utils import _create_function
 
 class ChainCombiner:
     """
@@ -63,7 +63,7 @@ class ChainCombiner:
             h0 = arguments.pop("h0")
             lambdas = {n: arguments.pop(k) for k, n  in zip(final_state_lambdas, sorted_final_state_nodes)}
             return self.combined_function(h0, lambdas, arguments)
-        polarized, argnames = self.__create_function(["h0", *final_state_lambdas] + self.resonance_params, ls_couplings, fun)
+        polarized, argnames = _create_function(["h0", *final_state_lambdas] + self.resonance_params, ls_couplings, fun)
 
         return polarized, ["h0", *final_state_lambdas], argnames[len(final_state_lambdas)+1:]
 
@@ -97,7 +97,7 @@ class ChainCombiner:
         def fun(arguments:dict):
             h0 = arguments["h0"]
             return self.combined_matrix(h0, arguments)
-        return self.__create_function(["h0"] + self.resonance_params, ls_couplings, fun)
+        return _create_function(["h0"] + self.resonance_params, ls_couplings, fun)
     
     def generate_couplings(self):
         """
@@ -107,42 +107,6 @@ class ChainCombiner:
         for chain in self.chains:
             couplings.update(chain.generate_couplings())
         return couplings
-    
-    def __create_function(self, names:list[set], ls_couplings:dict[int, dict[str: dict[LSTuple, float]]], f):
-            import inspect
-            import types
-            # Create a function signature dynamically
-            parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in names]
-            sig = inspect.Signature(parameters)
-            coupling_names = []
-            coupling_structure = {}
-            for resonance_id, coupling_dict in ls_couplings.items():
-                coupling_structure[resonance_id] = {}
-                for key, _ in coupling_dict["couplings"].items():
-                    resonance = Resonance.get_instance(resonance_id)
-                    if resonance.name is None:
-                        name = f"COUPLING_ID_{resonance_id}_{'LS' if resonance.scheme == 'ls' else 'H'}_{'_'.join([str(k) for k in key])}"
-                    else:
-                        name = f"{resonance.sanitized_name}_{'LS' if resonance.scheme == 'ls' else 'H'}_{'_'.join([str(k) for k in key])}"
-                    coupling_names.append(name) # we need only define a name 
-                    coupling_structure[resonance_id][key] = name
-            full_names = names + coupling_names
-            # Define a generic function that accepts *args
-            def func(*args, **kwargs):
-                named_map = {name: arg for name, arg in zip(full_names, args)}
-                named_map.update(kwargs)
-                couplings = {}
-                for resonance_id, coupling_dict in coupling_structure.items():
-                    couplings[resonance_id] = {"couplings":{
-                        key: named_map[coupling_dict[key]] for key in coupling_dict
-                    }}
-                arguments = named_map.copy()
-                arguments.update(couplings)
-                return f(arguments)
-
-            # Assign the generated signature to the function
-            func.__signature__ = sig
-            return func, full_names
     
     @property
     def resonance_params(self) -> list[str]:
@@ -166,7 +130,7 @@ class ChainCombiner:
                     for v in self.combined_matrix(h0, arguments).values()
                 )
 
-        return self.__create_function(self.resonance_params, ls_couplings, f)
+        return _create_function(self.resonance_params, ls_couplings, f)
         
 
         

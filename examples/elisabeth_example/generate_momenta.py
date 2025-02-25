@@ -6,7 +6,7 @@ import numpy as np
 def make_numpy(f):
     def wrapper(*args, **kwargs):
         args = [np.array(arg) for arg in args]
-        kwargs = {k: np.array(v) for k, v in kwargs.items()}
+        kwargs = {k: np.array(v,dtype=np.float64) for k, v in kwargs.items()}
         return f(*args, **kwargs)
     return wrapper
 
@@ -20,11 +20,11 @@ def make_four_vectors_from_dict(mkpisq, mkpsq, mppisq, phip, thetap, chi, phi_Ks
     # Given values
     # Lc -> p K pi
     # 0 -> 1 2 3
-    m12 = mkpsq**0.5
-    m23 = mkpisq**0.5
-    m13 = mppisq**0.5
-    m1, m2, m3 = 0.938272, 0.493677, 0.1395704
-    m0 = ((mkpisq + mkpsq + mppisq) - m1**2  - m2**2 - m3**2)**0.5
+    m12 = np.sqrt(mkpsq)
+    m23 = np.sqrt(mkpisq)
+    m13 = np.sqrt(mppisq)
+    m1, m2, m3 = 0.938272088, 0.493677, 0.13957039
+    m0 = np.sqrt((mkpisq + mkpsq + mppisq) - m1**2  - m2**2 - m3**2)
 
     # Squared masses
     m0sq, m1sq, m2sq, m3sq, m12sq, m23sq = [x**2 for x in [m0, m1, m2, m3, m12, m23]]

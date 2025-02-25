@@ -9,6 +9,8 @@ from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN, wigner_capital_d, Angular, convert_angular
 from decayamplitude.backend import numpy as np
 
+from decayamplitude.utils import _create_function
+
 class DecayChainNode:
     def __init__(self, node:Node, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN], topology:Topology, convention:str="helicity") -> None:
         # this check needs to happen first to avoid errors
@@ -266,6 +268,21 @@ class AlignedChain(DecayChain):
             return aligned_matrix
         
         return f
+    
+    def aligned_matrix_function(self, couplings:dict) -> Callable:
+        """
+        Returns a function, which will return the amplitude for a given set of helicities. 
+        The function will use the matrix to perform the calculation.
+        """
+        aligned_matrix = self.aligned_matrix
+        def f(arguments: dict):
+            h0 = arguments.pop("h0")
+            return aligned_matrix(h0, arguments)
+
+        return _create_function(
+            ["h0"] + self.resonance_params, couplings, f
+        )
+
     
 class MultiChain(DecayChain):
     @classmethod

@@ -1,0 +1,3 @@
+python3 examples/simple_threebody.py
+python3 examples/four_body_semileptonic.py
+python3 examples/three_body_jpsi.py

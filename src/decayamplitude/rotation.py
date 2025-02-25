@@ -205,7 +205,7 @@ def wigner_small_d(theta, j, m1, m2):
     """
     d_func = get_wigner_function(j, m1, m2)
     d = d_func(theta)
-    # d = np.array(d)
+    d = np.array(d)
     # d[np.isnan(d)] = 0
     d = np.nan_to_num(d, copy=True, nan=0.0)
     d = d.astype(np.complex128)

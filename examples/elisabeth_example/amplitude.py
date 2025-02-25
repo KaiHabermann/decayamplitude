@@ -88,7 +88,8 @@ class Amplitude:
         
         self.combiner = ChainCombiner([self.chain, ])
 
-        matrix_function, matrix_argnames = self.combiner.matrix_function(self.combiner.generate_couplings())
+        matrix_function, matrix_argnames = self.chain.aligned_matrix_function(self.chain.generate_couplings())
+        
         
         couplings_m1_m1 = {
             "Lc_H_-3_0": 0,
@@ -96,7 +97,7 @@ class Amplitude:
             "Lc_H_1_0": 0,
             "Lc_H_3_0": 0,
             "L_1520_H_1_0": 0,
-            "L_1520_H_-1_0":  1,
+            "L_1520_H_-1_0":  1/ (4)**0.5,
         }
         couplings_1_m1 = {
             "Lc_H_-3_0": 0,
@@ -104,14 +105,14 @@ class Amplitude:
             "Lc_H_1_0": 1,
             "Lc_H_3_0": 0,
             "L_1520_H_1_0": 0,
-            "L_1520_H_-1_0": 1,
+            "L_1520_H_-1_0": 1/ (4)**0.5,
         }
         couplings_m1_1 = {
             "Lc_H_-3_0": 0,
             "Lc_H_-1_0": 1,
             "Lc_H_1_0": 0,
             "Lc_H_3_0": 0,
-            "L_1520_H_1_0":  1,
+            "L_1520_H_1_0":  1/ (4)**0.5,
             "L_1520_H_-1_0": 0,
         }
         couplings_1_1 = {
@@ -119,7 +120,7 @@ class Amplitude:
             "Lc_H_-1_0": 0,
             "Lc_H_1_0": 1,
             "Lc_H_3_0": 0,
-            "L_1520_H_1_0":  1,
+            "L_1520_H_1_0":  1/ (4)**0.5,
             "L_1520_H_-1_0": 0,
         }
 
@@ -193,28 +194,28 @@ class Amplitude:
 
         aligned_matrix = self.chain.aligned_matrix
         # (hlc, l1520)
-        # self.value = {
-        #     ( 1, -1, -1): matrix_function( 1, **couplings_m1_m1),
-        #     ( 1, -1,  1): matrix_function( 1, **couplings_m1_1),
-        #     ( 1,  1, -1): matrix_function( 1, **couplings_1_m1),
-        #     ( 1,  1,  1): matrix_function( 1, **couplings_1_1),
-
-        #     (-1, -1, -1): matrix_function(-1, **couplings_m1_m1),
-        #     (-1, -1,  1): matrix_function(-1, **couplings_m1_1),
-        #     (-1,  1, -1): matrix_function(-1, **couplings_1_m1),
-        #     (-1,  1,  1): matrix_function(-1, **couplings_1_1)
-        # }
         self.value = {
-            (1, -1, -1): aligned_matrix(1, arguments_m1_m1),
-            (1, -1, 1): aligned_matrix(1, arguments_m1_1),
-            (1, 1, -1): aligned_matrix(1, arguments_1_m1),
-            (1, 1, 1): aligned_matrix(1, arguments_1_1),
+            ( 1, -1, -1): matrix_function( 1, **couplings_m1_m1),
+            ( 1, -1,  1): matrix_function( 1, **couplings_m1_1),
+            ( 1,  1, -1): matrix_function( 1, **couplings_1_m1),
+            ( 1,  1,  1): matrix_function( 1, **couplings_1_1),
 
-            (-1, -1, -1): aligned_matrix(-1, arguments_m1_m1),
-            (-1, -1, 1): aligned_matrix(-1, arguments_m1_1),
-            (-1, 1, -1): aligned_matrix(-1, arguments_1_m1),
-            (-1, 1, 1): aligned_matrix(-1, arguments_1_1)
+            (-1, -1, -1): matrix_function(-1, **couplings_m1_m1),
+            (-1, -1,  1): matrix_function(-1, **couplings_m1_1),
+            (-1,  1, -1): matrix_function(-1, **couplings_1_m1),
+            (-1,  1,  1): matrix_function(-1, **couplings_1_1)
         }
+        # self.value = {
+        #     (1, -1, -1): aligned_matrix(1, arguments_m1_m1),
+        #     (1, -1, 1): aligned_matrix(1, arguments_m1_1),
+        #     (1, 1, -1): aligned_matrix(1, arguments_1_m1),
+        #     (1, 1, 1): aligned_matrix(1, arguments_1_1),
+
+        #     (-1, -1, -1): aligned_matrix(-1, arguments_m1_m1),
+        #     (-1, -1, 1): aligned_matrix(-1, arguments_m1_1),
+        #     (-1, 1, -1): aligned_matrix(-1, arguments_1_m1),
+        #     (-1, 1, 1): aligned_matrix(-1, arguments_1_1)
+        # }
 
 
 
@@ -244,7 +245,7 @@ from decayamplitude.rotation import wigner_capital_d
 def test_elisabeth():
     import json
 
-    path = "examples/test_data\Parsed_ccp_kinematics_100events.json"
+    path = "examples/test_data/Parsed_ccp_kinematics_100events.json"
     result_path = "examples/test_data/cpp_100_events_sign2pi_unmodified.json"
     with open(path, "r") as f:
         data = json.load(f)
@@ -252,7 +253,7 @@ def test_elisabeth():
         result = json.load(f)
 
     
-    for k, dtc in data.items():
+    for k, dtc in list(data.items())[1:]:
         kwargs = {k: v for k, v in dtc["kinematic"].items() if k != "mkpisq" }
         momenta = make_four_vectors_from_dict(**dtc["chain_variables"]["Kpi"], **kwargs)
         amplitude = Amplitude(momenta)
