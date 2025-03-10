@@ -90,7 +90,6 @@ class Amplitude:
 
         matrix_function, matrix_argnames = self.chain.aligned_matrix_function(self.chain.generate_couplings())
         
-        
         couplings_m1_m1 = {
             "Lc_H_-3_0": 0,
             "Lc_H_-1_0": 1,
@@ -217,6 +216,17 @@ class Amplitude:
         #     (-1, 1, 1): aligned_matrix(-1, arguments_1_1)
         # }
 
+    @property
+    def wig_d(self):
+        Lc_decay_angle = self.helicity_angles[((1, 2), 3)]
+        L1520_decay_angle = self.helicity_angles[(1,2)]
+        Lc_J = 1
+        L1520_J = 3
+
+        return {
+            (h_lc, h_l1520, h_p): wigner_capital_d(Lc_decay_angle.theta_rf, Lc_decay_angle.phi_rf, 0, Lc_J, h_lc, h_l1520) * wigner_capital_d(L1520_decay_angle.theta_rf, L1520_decay_angle.phi_rf, 0, L1520_J, h_l1520, h_p)
+            for h_lc, h_l1520, h_p in product([1, -1], [1, -1], [1, -1])
+        }
 
 
 def parse_complex(s):
@@ -253,13 +263,14 @@ def test_elisabeth():
         result = json.load(f)
 
     
-    for k, dtc in list(data.items())[1:]:
+    for k, dtc in list(data.items()):
         kwargs = {k: v for k, v in dtc["kinematic"].items() if k != "mkpisq" }
         momenta = make_four_vectors_from_dict(**dtc["chain_variables"]["Kpi"], **kwargs)
         amplitude = Amplitude(momenta)
         for hl1520, pi, hlc, hp in product([1, -1], [0], [1, -1], [1, -1]):
             el, string = get_result_amplitude(result[k],  hl1520, pi, hlc, hp)
             kai = amplitude.value[(hlc, hl1520, hp)][(hp, 0, 0)]
+            kai = amplitude.wig_d[(hlc, hl1520, hp)]
             if not np.allclose(el, kai, atol=0.04):
                 print(f"{hlc=}, {hl1520=},  {hp=} string = {string}")
                 print("Rphi",r_phi(el), r_phi(kai))
@@ -279,6 +290,7 @@ def test_elisabeth():
         # res2 = get_result_amplitude(result[k], -1, 0)
 
         exit(0)
+
 
 if __name__ =="__main__":
     test_elisabeth()
