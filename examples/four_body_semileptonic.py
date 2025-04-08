@@ -82,7 +82,7 @@ def shortFourBodyAmplitudeBW():
     )
 
     # For semileptonics no actual alignment is needed, as we are only interested in one single decay chain
-    # But doing it this way allows to use the convenience functions of the combiner
+    # But doing it this way allows to use the convenience functions of the combiner. For a one chais setup the combiner will not align anyways.
     full = ChainCombiner([chain1])
 
     # The unpolarized amplitude is the simplest one, and the default case in LHCb
@@ -97,11 +97,11 @@ def shortFourBodyAmplitudeBW():
     print(argnames)
 
     # an issue with jax, where the internal caching structure needs to be prewarmed, so that in the compilation step the correct types are inferred
-    print(unpolarized(*([1] * len(argnames))))
+    print(unpolarized(*([1.0] * len(argnames))))
     
     # we can now jit the function
     unpolarized = jit(unpolarized) 
-    print(unpolarized(*([1] * len(argnames))))
+    print(unpolarized(*([1.0] * len(argnames))))
 
 
     # for the gradient calculation we need to define a log likelihood function or something, that produces a single value
@@ -112,8 +112,8 @@ def shortFourBodyAmplitudeBW():
     # we can calc the gradient of the log likelihood function
     unpolarized_grad = jit(grad(LL, argnums=[i for i in range(len(argnames))]))
 
-    # and a test call
-    print(unpolarized_grad(*([1.0] * len(argnames))))
+    # and a test call (may take quite some time)
+    print(unpolarized_grad(*([float(1.0)] * len(argnames))))
 
 
     # Other options for amplitudes, one might be interested int
