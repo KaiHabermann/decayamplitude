@@ -36,10 +36,10 @@ def resonances_BW(momenta):
             # Resonance(Node((1, 2)), quantum_numbers=QN(J, P), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_n", "width_resonance_n"], preserve_partity=True), # template for further resonances
             ],
         # This is the W boson. It is defined as a resonance, but we assue a constant lineshape in this mass regime. One could use a more complicated one aswell.
-        (3, 4): [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False)],
+        (3, 4): [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="W")],
 
         # This is the decaying B0 meson. It is defined as a resonance, but since this is a decay amplitude, the description is not important. Only the QN have to be correct. 
-        0: [Resonance(Node(0), quantum_numbers=QN(0, 1), lineshape=constant_lineshape, argnames=[], preserve_partity=False)]
+        0: [Resonance(Node(0), quantum_numbers=QN(0, 1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="B0")],
     }
     return resonances_hadronic
 
@@ -101,7 +101,7 @@ def shortFourBodyAmplitudeBW():
     
     # we can now jit the function
     unpolarized = jit(unpolarized) 
-    print(unpolarized(*([1.0] * len(argnames))))
+    print(unpolarized(*([1 + 1j] * len(argnames))))
 
 
     # for the gradient calculation we need to define a log likelihood function or something, that produces a single value
@@ -113,8 +113,7 @@ def shortFourBodyAmplitudeBW():
     unpolarized_grad = jit(grad(LL, argnums=[i for i in range(len(argnames))]))
 
     # and a test call (may take quite some time)
-    print(unpolarized_grad(*([float(1.0)] * len(argnames))))
-
+    print(unpolarized_grad(*([1 + 1j] * len(argnames))))
 
     # Other options for amplitudes, one might be interested int
     # polarized, lambdas ,polarized_argnames = full.polarized_amplitude(full.generate_couplings())

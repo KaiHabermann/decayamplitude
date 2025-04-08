@@ -12,7 +12,28 @@ from decayamplitude.backend import numpy as np
 from decayamplitude.utils import _create_function
 
 class DecayChainNode:
-    def __init__(self, node:Node, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN], topology:Topology, convention:str="helicity") -> None:
+    """
+    Class to represent a node in the decay chain. This utilizes the Node class from decayangle. 
+    A Node has a resonance, and a topology, to make senese of its position in the decay chain. The node value only has a meaning in the context of the topology.
+    """
+
+
+    def __init__(self, node:Node, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN], topology:Topology, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
+        """
+        Initializes a DecayChainNode object. The object will contain a resonance and a topology.
+
+        Parameters:
+        node: Node
+            The node of the decay chain. This is a node of the decay topology as defined in `decayangle`
+        resonances: dict[tuple, Resonance]
+            A dictionary with the resonances of the decay chain. The keys are the tuples of the nodes, the values are the resonances
+        final_state_qn: dict[tuple, QN]
+            A dictionary with the quantum numbers of the final state particles. The keys are the tuples of the nodes, the values are the quantum numbers
+        topology: Topology
+            The topology of the decay chain. This is a topology as defined in `decayangle`
+        convention: str
+            The convention of the decay chain. This is either "helicity" or "minus_phi". The default is "helicity"
+        """
         # this check needs to happen first to avoid errors
 
         if node.value not in topology.nodes:
@@ -52,25 +73,58 @@ class DecayChainNode:
 
     @property
     def final_state(self):
+        """
+        Returns:
+        bool
+            True if the node is a final state particle, False otherwise
+        """
         return self.node.final_state
     
     @property
     def is_root(self):
+        """
+        Returns:
+        bool
+            True if the node is the root of the decay chain, False otherwise
+        """
         return self.__is_root
 
     @property
     def quantum_numbers(self) -> QN:
+        """
+        Returns:
+        QN
+            The quantum numbers of the node
+        """
         return self.__qn 
     
     @property
-    def decay_tuple(self):
+    def decay_tuple(self) -> tuple:
+        """
+        Returns:
+        tuple
+            The decay tuple of the node. This is the tuple of the nodes daughters values.
+        """
         return tuple([daughter.node.value for daughter in self.daughters])
     
     @quantum_numbers.setter
     def quantum_numbers(self, qn: QN):
+        """
+        Sets the quantum numbers of the node. This is used to set the quantum numbers of the resonance.
+        """
         self.__qn = qn
 
     def __helicity_angles(self, angles:HelicityAngles) -> tuple:
+        """
+        Returns the helicity angles of the node. This is used to calculate the amplitude of the decay chain.
+
+        Parameters:
+            angles: HelicityAngles
+                The helicity angles of the node. This is used to calculate the amplitude of the decay chain. Helicity angles are defined in the `decayangle` library.
+        Returns:
+            tuple
+                The helicity angles of the node. This is used to calculate the amplitude of the decay chain.
+        """
         if self.convention == "helicity":
             return (angles.phi_rf, angles.theta_rf, 0)
         if self.convention == "minus_phi":
@@ -220,7 +274,29 @@ class DecayChain:
         return list(set(resonance_parameter_names))
 
 class AlignedChain(DecayChain):
+    """
+    The aligned version of the decay chain. This is used to calculate the aligned amplitude, which is the amplitude in the final state helicity frame as defined by a reference topology or reference chain.
+    """
+
     def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], reference:Union[Topology, DecayChain], wigner_rotation: dict[tuple, WignerAngles]= None, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
+        """
+        Initializes an AlignedChain object. The object will contain a list of DecayChain objects.
+        Parameters:
+        topology: Topology
+            The topology of the decay chain
+        resonances: dict[tuple, Resonance]
+            A dictionary with the resonances of the decay chain. The keys are the tuples of the nodes, the values are the resonances
+        momenta: dict
+            The momenta of the decay chain
+        final_state_qn: dict[tuple, QN]
+            A dictionary with the quantum numbers of the final state particles
+        reference: Topology
+            The reference topology for the decay chain. This is used to calculate the alignment.
+        wigner_rotation: dict[tuple, WignerAngles]
+            A dictionary with the Wigner angles for the decay chain. This is used to calculate the alignment. Calculated if not provided.
+        convention: str
+            The convention of the decay chain. This is either "helicity" or "minus_phi". The default is "helicity"
+        """
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
         self.topology = topology
 
