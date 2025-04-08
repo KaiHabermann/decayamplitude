@@ -18,7 +18,7 @@ from collections import defaultdict
 
 # Since we are semi leptonic there is only one important decay topology
 # The (1, 2) system is the hadronic system, which is the one we are interested in
-# Decay definition: B0 -> D0 h mu nu
+# Decay definition: B0 -> D0 h mu nu  or in the notation of the library 0 -> ((1, 2), (3, 4))
 topology1 = Topology(
     0,
     decay_topology=((1,2), (3, 4))
@@ -30,9 +30,9 @@ def resonances_BW(momenta):
         (1,2): [
             # Here the hadronic resonances go+
             # These will decay strong, so we need to conserve parity
-            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_1", "width_resonance_1"], preserve_partity=True, name="D*1"),
-            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_2", "width_resonance_2"], preserve_partity=True, name="D*2"),
-            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_3", "width_resonance_3"], preserve_partity=True, name="D*3"),
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["D_2300_M", "D_2300_Gamma"], preserve_partity=True, name="D*0(2300)"),
+            Resonance(Node((1, 2)), quantum_numbers=QN(4, 1), lineshape=BW_lineshape(m_12), argnames=["D_2460_M", "D_2460_Gamma"], preserve_partity=True, name="D*2(2460)"),
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["D_2600_M", "D_2600_Gamma"], preserve_partity=True, name="D*1(2600)"),
             # Resonance(Node((1, 2)), quantum_numbers=QN(J, P), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_n", "width_resonance_n"], preserve_partity=True), # template for further resonances
             ],
         # This is the W boson. It is defined as a resonance, but we assue a constant lineshape in this mass regime. One could use a more complicated one aswell.
@@ -45,6 +45,9 @@ def resonances_BW(momenta):
 
 
 def phasespace_momenta():
+    # dependence on the phasespace library, dont use, if you dont have it installed
+    # Installing via pip may destroy you existing  cuda setup
+    # This is a simple example, where we use the phasespace library to generate the momenta
     import phasespace
     B0_MASS = 5.27963
     PION_MASS = 0.13957018
