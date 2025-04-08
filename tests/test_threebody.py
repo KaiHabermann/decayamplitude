@@ -321,13 +321,13 @@ def testShortThreeBodyAmplitude():
     matrix1 = full.combined_matrix(-1, arguments)
     matrix2 = full.combined_matrix(1, arguments)
 
-    unpolarized, argnames = full.unpolarized_amplitude(full.generate_couplings())
+    unpolarized, argnames = full.unpolarized_amplitude(full.generate_couplings(), complex_couplings=False)
     assert np.allclose(sum(abs(v)**2 for v in matrix1.values()) + sum(abs(v)**2 for v in matrix2.values()), unpolarized(*([1] * len(argnames))))
     assert np.allclose(unpolarized(*([1] * len(argnames))), unpolarized(*([1] * len(argnames)))[0])
 
     full2 = ChainCombiner([chain1, MultiChain(topology2, momenta=momenta, resonances=merged_resonances, final_state_qn=final_state_qn)])
   
-    unpolarized2, argnames2 = full2.unpolarized_amplitude(full2.generate_couplings())
+    unpolarized2, argnames2 = full2.unpolarized_amplitude(full2.generate_couplings(), complex_couplings=False)
 
     # initial orientation should not affect the result
     assert np.allclose(unpolarized2(*([1] * len(argnames))), unpolarized2(*([1] * len(argnames2)))[0])
