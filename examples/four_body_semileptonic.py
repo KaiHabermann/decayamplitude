@@ -115,7 +115,12 @@ def shortFourBodyAmplitudeBW():
     # and a test call (may take quite some time)
     print(unpolarized_grad(*([1.0] * len(argnames))))
 
-    # Other options for amplitudes, one might be interested int
+    # Further calls will be much faster, since we dont need to compile again
+    # print(unpolarized_grad(*([1.0] * len(argnames))))
+    # print(unpolarized_grad(*([2.0] * len(argnames))))
+
+
+    # Other options for amplitudes, one might be interested in
     # polarized, lambdas ,polarized_argnames = full.polarized_amplitude(full.generate_couplings())
     # print(lambdas)
     # lambda_values = [0, 0, 0, 1, 1]
