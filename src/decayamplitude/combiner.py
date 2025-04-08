@@ -118,7 +118,7 @@ class ChainCombiner:
             # raise ValueError(f"Parameter names are not unique: {', '.join([name for name, count in c.items() if count > 1])}")
         return list(set(resonance_parameter_names))
 
-    def unpolarized_amplitude(self, ls_couplings: dict) -> tuple[Callable, list[str]]:
+    def unpolarized_amplitude(self, ls_couplings: dict, complex_couplings=True) -> tuple[Callable, list[str]]:
 
         if self.root_resonance is None:
             raise ValueError(f"The root resonance must be the same for all chains! Root = {self.reference.topology.root}.")
@@ -130,7 +130,7 @@ class ChainCombiner:
                     for v in self.combined_matrix(h0, arguments).values()
                 )
 
-        return _create_function(self.resonance_params, ls_couplings, f)
+        return _create_function(self.resonance_params, ls_couplings, f, complex_couplings=complex_couplings)
         
 
         

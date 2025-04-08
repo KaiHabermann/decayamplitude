@@ -101,7 +101,7 @@ def shortFourBodyAmplitudeBW():
     
     # we can now jit the function
     unpolarized = jit(unpolarized) 
-    print(unpolarized(*([1 + 1j] * len(argnames))))
+    print(unpolarized(*([1.0] * len(argnames))))
 
 
     # for the gradient calculation we need to define a log likelihood function or something, that produces a single value
@@ -113,7 +113,7 @@ def shortFourBodyAmplitudeBW():
     unpolarized_grad = jit(grad(LL, argnums=[i for i in range(len(argnames))]))
 
     # and a test call (may take quite some time)
-    print(unpolarized_grad(*([1 + 1j] * len(argnames))))
+    print(unpolarized_grad(*([1.0] * len(argnames))))
 
     # Other options for amplitudes, one might be interested int
     # polarized, lambdas ,polarized_argnames = full.polarized_amplitude(full.generate_couplings())

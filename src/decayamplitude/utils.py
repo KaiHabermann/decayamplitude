@@ -1,7 +1,7 @@
 from typing import Callable
 from decayamplitude.resonance import LSTuple, Resonance
 
-def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[LSTuple, float]]], f) -> Callable:
+def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[LSTuple, float]]], f, complex_couplings=False) -> Callable:
     import inspect
     import types
     # Create a function signature dynamically
@@ -17,7 +17,13 @@ def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[LSTu
                 name = f"COUPLING_ID_{resonance_id}_{'LS' if resonance.scheme == 'ls' else 'H'}_{'_'.join([str(k) for k in key])}"
             else:
                 name = f"{resonance.sanitized_name}_{'LS' if resonance.scheme == 'ls' else 'H'}_{'_'.join([str(k) for k in key])}"
-            coupling_names.append(name) # we need only define a name 
+            if complex_couplings:
+                name_real = f"{name}_real"
+                name_imag = f"{name}_imaginary"
+                coupling_names.append(name_real)
+                coupling_names.append(name_imag)
+            else:
+                coupling_names.append(name) # we need only define a name 
             coupling_structure[resonance_id][key] = name
     full_names = names + coupling_names
     # Define a generic function that accepts *args
@@ -25,9 +31,17 @@ def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[LSTu
         named_map = {name: arg for name, arg in zip(full_names, args)}
         named_map.update(kwargs)
         couplings = {}
+
+        def compute_coupling(name):
+            if complex_couplings:
+                return named_map[f"{name}_real"] + 1j * named_map[f"{name}_imaginary"]
+            else:
+                return named_map[name]
+
         for resonance_id, coupling_dict in coupling_structure.items():
+
             couplings[resonance_id] = {"couplings":{
-                key: named_map[coupling_dict[key]] for key in coupling_dict
+                key: compute_coupling(coupling_dict[key]) for key in coupling_dict
             }}
         arguments = named_map.copy()
         arguments.update(couplings)
