@@ -32,7 +32,7 @@ def resonances_BW(momenta):
             # These will decay strong, so we need to conserve parity
             Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["D_2300_M", "D_2300_Gamma"], preserve_partity=True, name="D*0(2300)"),
             Resonance(Node((1, 2)), quantum_numbers=QN(4, 1), lineshape=BW_lineshape(m_12), argnames=["D_2460_M", "D_2460_Gamma"], preserve_partity=True, name="D*2(2460)"),
-            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["D_2600_M", "D_2600_Gamma"], preserve_partity=True, name="D*1(2600)"),
+            Resonance(Node((1, 2)), quantum_numbers=QN(2, -1), lineshape=BW_lineshape(m_12), argnames=["D_2600_M", "D_2600_Gamma"], preserve_partity=True, name="D*1(2600)"),
             # Resonance(Node((1, 2)), quantum_numbers=QN(J, P), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_n", "width_resonance_n"], preserve_partity=True), # template for further resonances
             ],
         # This is the W boson. It is defined as a resonance, but we assue a constant lineshape in this mass regime. One could use a more complicated one aswell.
