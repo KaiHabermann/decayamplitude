@@ -33,6 +33,7 @@ def resonances_BW(momenta):
             Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=BW_lineshape(m_12), argnames=["D_2300_M", "D_2300_Gamma"], preserve_partity=True, name="D*0(2300)"),
             Resonance(Node((1, 2)), quantum_numbers=QN(4, 1), lineshape=BW_lineshape(m_12), argnames=["D_2460_M", "D_2460_Gamma"], preserve_partity=True, name="D*2(2460)"),
             Resonance(Node((1, 2)), quantum_numbers=QN(2, -1), lineshape=BW_lineshape(m_12), argnames=["D_2600_M", "D_2600_Gamma"], preserve_partity=True, name="D*1(2600)"),
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name="Non-Resonant-S-Wave"),
             # Resonance(Node((1, 2)), quantum_numbers=QN(J, P), lineshape=BW_lineshape(m_12), argnames=["mass_resonance_n", "width_resonance_n"], preserve_partity=True), # template for further resonances
             ],
         # This is the W boson. It is defined as a resonance, but we assue a constant lineshape in this mass regime. One could use a more complicated one aswell.
@@ -49,13 +50,13 @@ def phasespace_momenta():
     # Installing via pip may destroy you existing  cuda setup
     # This is a simple example, where we use the phasespace library to generate the momenta
     import phasespace
-    B0_MASS = 5.27963
-    PION_MASS = 0.13957018
-    D0_MASS = 1.86483
-    MU_MASS = 0.1056583715
+    B0_MASS = 5.27963e3
+    PION_MASS = 0.13957018e3
+    D0_MASS = 1.86483e3
+    MU_MASS = 0.1056583715e3
     NU_MASS = 0
     weights, particles = phasespace.nbody_decay(B0_MASS,
-                                            [D0_MASS, PION_MASS, MU_MASS, NU_MASS]).generate(n_events=10)
+                                            [D0_MASS, PION_MASS, MU_MASS, NU_MASS]).generate(n_events=100000)
     momenta = {
         1: np.array(particles["p_0"]),
         2: np.array(particles["p_1"]),
@@ -99,7 +100,7 @@ def shortFourBodyAmplitudeBW():
     # an issue with jax, where the internal caching structure needs to be prewarmed, so that in the compilation step the correct types are inferred
     print(unpolarized(*([1.0] * len(argnames))))
     
-    # we can now jit the function
+    # we can now jit the function, to make it faster after the compile
     unpolarized = jit(unpolarized) 
     print(unpolarized(*([1.0] * len(argnames))))
 
@@ -113,7 +114,7 @@ def shortFourBodyAmplitudeBW():
     unpolarized_grad = jit(grad(LL, argnums=[i for i in range(len(argnames))]))
 
     # and a test call (may take quite some time)
-    print(unpolarized_grad(*([1.0] * len(argnames))))
+    # print(unpolarized_grad(*([1.0] * len(argnames))))
 
     # Further calls will be much faster, since we dont need to compile again
     # print(unpolarized_grad(*([1.0] * len(argnames))))
@@ -129,6 +130,30 @@ def shortFourBodyAmplitudeBW():
     # matrix_function, matrix_argnames = full.matrix_function(full.generate_couplings())
     # print(matrix_argnames)
     # print(matrix_function(0, *([1] * len(argnames))) )
+
+
+    # # quick plot to show the resonant structure can be confiremd visually
+    # import matplotlib.pyplot as plt
+    # # set couplings to 1.0
+    # param_dict = {param_name: 1.0 for param_name in argnames}
+    # param_dict.update({
+    #     # made up masses and widths
+    #     'D_2300_Gamma': 20, 
+    #     'D_2460_Gamma': 60, 
+    #     'D_2460_M': 2460, 
+    #     'D_2300_M': 2300, 
+    #     'D_2600_M': 2600, 
+    #     'D_2600_Gamma': 80,
+    #     # set the non resonant part to a low value, since otherwise it will dominate the plot
+    #     "Non_Resonant_S_Wave_LS_0_0_real": 0.00001,
+    #     "Non_Resonant_S_Wave_LS_0_0_imaginary": 0.0,
+    # })
+    # import numpy as onp # original numpy plays nicer with matplotlib, so we convert the results to numpy
+    # weights = onp.array(unpolarized(**param_dict))
+    # hadronic_mass = topology1.nodes[(1,2)].mass(momenta=momenta)
+    # plt.hist(onp.array(hadronic_mass), bins=100, weights=weights, label="Hadronic mass")
+    # plt.show()
+
 
 
 if __name__ == "__main__":
