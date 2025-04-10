@@ -1,4 +1,4 @@
-# Welcome to the decayangle software Project
+# Welcome to the decayamplitude software Project
 
 [![PyPI - Version](https://img.shields.io/pypi/v/decayamplitude.svg)](https://pypi.org/project/decayamplitude/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/decayamplitude.svg)](https://pypi.org/project/decayamplitude/)
@@ -23,6 +23,7 @@ pip install decayamplitude
 ## Goal
 
 The software project `decayamplitude` provides an amplitude package working in tandem with `decayangle` to build full cascade reaction amplitudes. 
+The main goal is to provide a simple interface to build decay chains and their amplitudes, which can be used in amplitude analyses. 
 
 ## Usage
 ```python
