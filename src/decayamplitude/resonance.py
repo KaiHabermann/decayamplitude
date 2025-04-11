@@ -3,6 +3,7 @@ from decayamplitude.rotation import QN, Angular, clebsch_gordan, wigner_capital_
 from typing import Union, Callable, Literal
 from collections import namedtuple
 from functools import cached_property
+from decayamplitude.utils import sanitize
 
 LSTuple = namedtuple("LSTuple", ["l", "s"])
 HelicityTuple = namedtuple("HelicityTuple", ["h1", "h2"])
@@ -67,21 +68,7 @@ class Resonance:
         Returns:
             str: sanitized name
         """
-        replacements = [
-            ("*", "star"),
-            ("(", ""),
-            (")", ""),
-            ("[", ""),
-            ("]", ""),
-            ("{", ""),
-            ("}", ""),
-        ] + [
-            (a, "_") for a in " -+.,/\\^'\"~!?=>|&$#@%;:`´§°"
-        ]
-        name = self.__name
-        for replacement in replacements:
-            name = name.replace(*replacement)
-        return name
+        return sanitize(self.name)
 
     @property
     def id(self) -> int:

@@ -1,7 +1,7 @@
 from typing import Callable
-from decayamplitude.resonance import LSTuple, Resonance
 
-def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[LSTuple, float]]], f, complex_couplings=False) -> Callable:
+def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[tuple, float]]], f, complex_couplings=False) -> Callable:
+    from decayamplitude.resonance import LSTuple, Resonance
     import inspect
     import types
     # Create a function signature dynamically
@@ -50,4 +50,25 @@ def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[LSTu
     # Assign the generated signature to the function
     func.__signature__ = sig
     return func, full_names
+
+def sanitize(name: str) -> str:
+    """
+    Sanitize a name for use in python code
+    """
+    replacements = [
+        ("*", "star"),
+        ("(", ""),
+        (")", ""),
+        ("[", ""),
+        ("]", ""),
+        ("{", ""),
+        ("}", ""),
+    ] + [
+        (a, "_") for a in " -+.,/\\^'\"~!?=>|&$#@%;:`´§°"
+    ]
+    for replacement in replacements:
+        name = name.replace(*replacement)
+    
+    return name
+    
     
