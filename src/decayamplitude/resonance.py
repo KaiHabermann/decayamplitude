@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 from decayangle.decay_topology import Node, HelicityAngles
 from decayamplitude.rotation import QN, Angular, clebsch_gordan, wigner_capital_d, convert_angular
 from typing import Union, Callable, Literal
 from collections import namedtuple
 from functools import cached_property
 from decayamplitude.utils import sanitize
+
 
 LSTuple = namedtuple("LSTuple", ["l", "s"])
 HelicityTuple = namedtuple("HelicityTuple", ["h1", "h2"])
@@ -26,7 +29,7 @@ class Resonance:
             self.quantum_numbers = QN(spin, parity)
         else:
             self.quantum_numbers = quantum_numbers
-        self.__daughter_qn = None
+        self.__daughters = None
         self.__lineshape = None
         if name is not None:
             self.__name = name
@@ -87,7 +90,9 @@ class Resonance:
                 # We have multiple resonances with the same name, we assume that they share a parameter set 
                 # and thus we only need to register the name once
                 # The parameter set is only for the lineshape and not for the couplings
-                cls.__named_instances[obj.name] = obj
+                cls.__named_instances[obj.name] = [obj]
+            else:
+                cls.__named_instances[obj.name].append(obj)
 
         return instance_id
     
@@ -104,13 +109,20 @@ class Resonance:
     
     @property
     def daughter_qn(self) -> list[QN]:
-        if self.__daughter_qn is None:
+        if self.daughters is None:
             raise ValueError(f"{self.node}: Daughter quantum numbers not set! This should happen in the DecayChainNode class. The resonance class should only be used as part of a DecayChain!")
-        return self.__daughter_qn
+        return [daughter.quantum_numbers for daughter in self.__daughters]
     
-    @daughter_qn.setter
-    def daughter_qn(self, daughters: list[QN]):
-        self.__daughter_qn = daughters
+
+    @property   
+    def daughters(self) ->  list["Resonance" | Node]:
+        if self.__daughters is None:
+            raise ValueError(f"{self.node}: Daughters not set! This should happen in the DecayChainNode class. The resonance class should only be used as part of a DecayChain!")
+        return self.__daughters
+
+    @daughters.setter
+    def daughters(self, daughters: list[Resonance | Node]):
+        self.__daughters = daughters
     
     def __str__(self):
         return f"Resonance {self.name} at {self.node} with {self.quantum_numbers}"

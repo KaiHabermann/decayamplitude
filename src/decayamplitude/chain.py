@@ -67,7 +67,7 @@ class DecayChainNode:
                 raise ValueError(f"Resonance for {self.tuple} not found. Every internal node must have a resonance to describe its behaviour!")
             # set the daughters of the resonance
             self.quantum_numbers = self.resonance.quantum_numbers
-            self.resonance.daughter_qn = [daughter.quantum_numbers for daughter in self.daughters]
+            self.resonance.daughters = [daughter for daughter in self.daughters]
         else:
             self.quantum_numbers = self.final_state_qn[self.tuple]
 
@@ -362,10 +362,15 @@ class AlignedChain(DecayChain):
     
 class MultiChain(DecayChain):
     @classmethod
-    def create_chains(cls, resonances: dict[tuple, tuple[Resonance]]) -> list[dict[tuple, Resonance]]:
+    def create_chains(cls, resonances: dict[tuple, tuple[Resonance]], topology: Topology | None = None) -> list[dict[tuple, Resonance]]:
         """
         Creates all possible chains from a dictionary with lists of reonances for each isobar
         """
+        if topology is not None:
+            # with a given topology we can restrict the resonances to the nodes in the topology
+            # this is usefull, if we only have one global dict of resonances
+            all_nodes = [node for node in topology.nodes]
+            resonances = {k: v for k, v in resonances.items() if k in all_nodes}
         ordered_keys = list(resonances.keys())
         chains = product(*[resonances[key] for key in ordered_keys])
         return [
@@ -416,7 +421,7 @@ class MultiChain(DecayChain):
                 raise ValueError(f"Not all nodes have a resonance assigned: {resonances.keys()}, {topology.nodes.keys()}")
             self.chains = [
                 DecayChain(topology, chain_definition, momenta, final_state_qn, convention)
-                for chain_definition in type(self).create_chains(resonances)
+                for chain_definition in type(self).create_chains(resonances, topology)
             ]
             self.convention = convention
         else:
