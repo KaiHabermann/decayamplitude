@@ -9,7 +9,7 @@ from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN, wigner_capital_d, Angular, convert_angular
 from decayamplitude.backend import numpy as np
 
-from decayamplitude.utils import _create_function
+from decayamplitude.utils import _create_function, sanitize
 
 class DecayChainNode:
     """
@@ -79,6 +79,28 @@ class DecayChainNode:
             True if the node is a final state particle, False otherwise
         """
         return self.node.final_state
+    
+    @property
+    def name(self) -> str:
+        """
+        Returns:
+        str
+            The name of the node
+        """
+        if self.resonance is not None:
+            return self.resonance.name
+        return f"particle_{self.node.value}"
+    
+    @property
+    def sanitized_name(self) -> str:
+        """
+        Returns:
+        str
+            The sanitized name of the node
+        """
+        if self.resonance is not None:
+            return self.resonance.sanitized_name
+        return sanitize(f"particle_{self.node.value}")
     
     @property
     def is_root(self):
@@ -417,8 +439,9 @@ class MultiChain(DecayChain):
                 raise ValueError("All chains must have the same convention")
             self.convention = chains[0].convention
         elif resonances is not None:
-            if any(node.value not in resonances and node.tuple not in resonances and not node.final_state for node in topology.nodes.values()):
-                raise ValueError(f"Not all nodes have a resonance assigned: {resonances.keys()}, {topology.nodes.keys()}")
+            resonant_nodes = [node for node in topology.nodes.values() if not node.final_state]
+            if any(node.value not in resonances and node.tuple not in resonances for node in resonant_nodes):
+                raise ValueError(f"Not all nodes have a resonance assigned: {resonances.keys()}, {list(map(lambda x: x.value,resonant_nodes))}")
             self.chains = [
                 DecayChain(topology, chain_definition, momenta, final_state_qn, convention)
                 for chain_definition in type(self).create_chains(resonances, topology)

@@ -13,10 +13,7 @@ def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[tupl
         coupling_structure[resonance_id] = {}
         for key, _ in coupling_dict["couplings"].items():
             resonance = Resonance.get_instance(resonance_id)
-            if resonance.name is None:
-                name = f"COUPLING_ID_{resonance_id}_{'LS' if resonance.scheme == 'ls' else 'H'}_{'_'.join([str(k) for k in key])}"
-            else:
-                name = f"{resonance.sanitized_name}_{'LS' if resonance.scheme == 'ls' else 'H'}_{'_'.join([str(k) for k in key])}"
+            name = f"{resonance.descriptor}_{'LS' if resonance.scheme == 'ls' else 'H'}_{'_'.join([str(k) for k in key])}"
             if complex_couplings:
                 name_real = f"{name}_real"
                 name_imag = f"{name}_imaginary"

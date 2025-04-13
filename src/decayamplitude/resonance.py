@@ -60,11 +60,13 @@ class Resonance:
         return self.__scheme
 
     @property
-    def name(self) -> Union[str, None]:
+    def name(self) -> str:
+        if self.__name is None:
+            return f"ID_{self.id}"
         return self.__name
     
     @cached_property
-    def sanitized_name(self) -> Union[str, None]:
+    def sanitized_name(self) -> str:
         """
         Name sanitized for use in python code
 
@@ -72,6 +74,13 @@ class Resonance:
             str: sanitized name
         """
         return sanitize(self.name)
+    
+    @property
+    def descriptor(self) -> str:
+        """
+        Returns a string that describes the resonance
+        """
+        return f"{self.sanitized_name}_to_{'_'.join([d.sanitized_name for d in self.daughters])}"
 
     @property
     def id(self) -> int:
