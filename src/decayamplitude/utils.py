@@ -48,7 +48,7 @@ def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[tupl
     parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in set(full_names)]
     sig = inspect.Signature(parameters)
     func.__signature__ = sig
-    return func, full_names
+    return func, set(full_names)
 
 def sanitize(name: str) -> str:
     """

@@ -132,28 +132,28 @@ def shortFourBodyAmplitudeBW():
     # print(matrix_function(0, *([1] * len(argnames))) )
 
 
-    # quick plot to show the resonant structure can be confiremd visually
-    import matplotlib.pyplot as plt
-    # set couplings to 1.0
-    param_dict = {param_name: 1.0 for param_name in argnames}
-    param_dict.update({
-        # made up masses and widths
-        'D_2300_Gamma': 20, 
-        'D_2460_Gamma': 60, 
-        'D_2460_M': 2460, 
-        'D_2300_M': 2300, 
-        'D_2600_M': 2600, 
-        'D_2600_Gamma': 80,
-        # set the non resonant part to a low value, since otherwise it will dominate the plot
-        "Non_Resonant_S_Wave_to_particle_1_particle_2_LS_0_0_real": 0.00001,
-        "Non_Resonant_S_Wave_to_particle_1_particle_2_LS_0_0_imaginary": 0.0,
-    })
-    del param_dict['Non_Resonant_S_Wave_to_particle_1_particle_2_LS_0_0_real']
-    import numpy as onp # original numpy plays nicer with matplotlib, so we convert the results to numpy
-    weights = onp.array(unpolarized(**param_dict))
-    hadronic_mass = topology1.nodes[(1,2)].mass(momenta=momenta)
-    plt.hist(onp.array(hadronic_mass), bins=100, weights=weights, label="Hadronic mass")
-    plt.show()
+    # # quick plot to show the resonant structure can be confiremd visually
+    # import matplotlib.pyplot as plt
+    # # set couplings to 1.0
+    # param_dict = {param_name: 1.0 for param_name in argnames}
+    # param_dict.update({
+    #     # made up masses and widths
+    #     'D_2300_Gamma': 20, 
+    #     'D_2460_Gamma': 60, 
+    #     'D_2460_M': 2460, 
+    #     'D_2300_M': 2300, 
+    #     'D_2600_M': 2600, 
+    #     'D_2600_Gamma': 80,
+    #     # set the non resonant part to a low value, since otherwise it will dominate the plot
+    #     "Non_Resonant_S_Wave_to_particle_1_particle_2_LS_0_0_real": 0.00001,
+    #     "Non_Resonant_S_Wave_to_particle_1_particle_2_LS_0_0_imaginary": 0.0,
+    # })
+    # del param_dict['Non_Resonant_S_Wave_to_particle_1_particle_2_LS_0_0_real']
+    # import numpy as onp # original numpy plays nicer with matplotlib, so we convert the results to numpy
+    # weights = onp.array(unpolarized(**param_dict))
+    # hadronic_mass = topology1.nodes[(1,2)].mass(momenta=momenta)
+    # plt.hist(onp.array(hadronic_mass), bins=100, weights=weights, label="Hadronic mass")
+    # plt.show()
 
 
 
