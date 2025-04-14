@@ -206,6 +206,8 @@ class Resonance:
         qn1, qn2 = self.daughter_qn
         qn0 = self.quantum_numbers
 
+        if qn0.angular.value2 % 2 != (qn1.angular.value2 + qn2.angular.value2) % 2:
+            raise ValueError(f"Angular momentum of resonance {self.name} at {self.node} is not compatible with the angular momenta of the daughters {qn1}, {qn2}.")
         possible_states = set(QN.generate_L_states(qn0, qn1, qn2))
         if not conserve_parity:
             qn0_bar = QN(qn0.angular.angular_momentum, -qn0.parity)
