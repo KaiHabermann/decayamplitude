@@ -145,8 +145,8 @@ def shortFourBodyAmplitudeBW():
     #     'D_2600_M': 2600, 
     #     'D_2600_Gamma': 80,
     #     # set the non resonant part to a low value, since otherwise it will dominate the plot
-    #     "Non_Resonant_S_Wave_LS_0_0_real": 0.00001,
-    #     "Non_Resonant_S_Wave_LS_0_0_imaginary": 0.0,
+    #     "Non_Resonant_S_Wave_to_particle_1_particle_2_LS_0_0_real": 0.00001,
+    #     "Non_Resonant_S_Wave_to_particle_1_particle_2_LS_0_0_imaginary": 0.0,
     # })
     # import numpy as onp # original numpy plays nicer with matplotlib, so we convert the results to numpy
     # weights = onp.array(unpolarized(**param_dict))
