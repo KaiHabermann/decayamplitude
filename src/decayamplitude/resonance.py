@@ -94,14 +94,14 @@ class Resonance:
     def register(cls, obj) -> int:
         instance_id = len(cls.__instances)
         cls.__instances[instance_id] = obj
-        if obj.name is not None:
-            if not obj.name in cls.__named_instances:
+        if obj.__name is not None:
+            if not obj.__name in cls.__named_instances:
                 # We have multiple resonances with the same name, we assume that they share a parameter set 
                 # and thus we only need to register the name once
                 # The parameter set is only for the lineshape and not for the couplings
-                cls.__named_instances[obj.name] = [obj]
+                cls.__named_instances[obj.__name] = [obj]
             else:
-                cls.__named_instances[obj.name].append(obj)
+                cls.__named_instances[obj.__name].append(obj)
 
         return instance_id
     

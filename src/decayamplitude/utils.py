@@ -5,8 +5,7 @@ def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[tupl
     import inspect
     import types
     # Create a function signature dynamically
-    parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in names]
-    sig = inspect.Signature(parameters)
+    
     coupling_names = []
     coupling_structure = {}
     for resonance_id, coupling_dict in ls_couplings.items():
@@ -45,6 +44,9 @@ def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[tupl
         return f(arguments)
 
     # Assign the generated signature to the function
+    # we use the set to remove duplicates. These can exist, if the same decay process exists in multiple chains
+    parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in set(full_names)]
+    sig = inspect.Signature(parameters)
     func.__signature__ = sig
     return func, full_names
 
