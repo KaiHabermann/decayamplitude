@@ -26,6 +26,11 @@ pip install decayamplitude
 The software project `decayamplitude` provides an amplitude package working in tandem with `decayangle` to build full cascade reaction amplitudes. 
 The main goal is to provide a simple interface to build decay chains and their amplitudes, which can be used in amplitude analyses. 
 
+## Online Decay Editor
+There is a beta version of a web based decay editor, which is hosted [here](https://kaihabermann.github.io/DecaySelector/).
+The Website allows for an easy selection of a decay and resonances. Once finished a script generating an amplitude with `decayamplitude` can be downloaded.
+This is usually the easiest and quickest way to get a working amplitude. Explicit lineshapes need then to be defined by the user, where it is marked in the downloaded script.
+
 ## Usage
 ```python
 from decayamplitude.resonance import Resonance
