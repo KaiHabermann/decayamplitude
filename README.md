@@ -12,6 +12,7 @@
 - [Installation](#installation)
 - [Goal](#goal)
 - [Related projects](#related-projects)
+- [How to cite](#how-to-cite)
 - [License](#license)
 
 ## Installation
@@ -148,6 +149,10 @@ However, there are a few projects addressing these rotations explicitly using an
 - [ThreeBodyDecays.jl](https://github.com/mmikhasenko/ThreeBodyDecays.jl),
 - [SymbolicThreeBodyDecays.jl](https://github.com/mmikhasenko/SymbolicThreeBodyDecays.jl),
 - [ComPWA/ampform-dpd](https://github.com/ComPWA/ampform-dpd).
+
+## How to cite
+This software package as well as the closely related [decayangle](https://github.com/KaiHabermann/decayangle) should be cited by the accompaning paper
+[Wigner Rotations for Cascade Reactions](https://doi.org/10.1103/PhysRevD.111.056015)
 
 ## License
 
