@@ -446,6 +446,15 @@ class MultiChain(DecayChain):
                 DecayChain(topology, chain_definition, momenta, final_state_qn, convention)
                 for chain_definition in type(self).create_chains(resonances, topology)
             ]
+            def chain_filter(chain):
+                try:
+                    chain.generate_couplings()
+                except ValueError:
+                    return False
+                return True
+            self.chains = [chain for chain in self.chains if chain_filter(chain)]
+            if not self.chains:
+                raise ValueError("There are no valid chains in the provided resonances! Check the resonances and the topology! Or check the quantum numbers!")
             self.convention = convention
         else:
             raise ValueError("Either resonances or chains must be provided")
