@@ -87,7 +87,7 @@ class ChainCombiner:
             }
         return matrix
     
-    def matrix_function(self, ls_couplings:dict[int, dict[str: dict[LSTuple, float]]]) -> Callable:
+    def matrix_function(self, ls_couplings:dict[int, dict[str: dict[LSTuple, float]]], complex_couplings: bool=True) -> tuple[Callable, list[str]]:
         """
         Returns a function that combines the matrices of all chains.
         The final matrix will be a sum of all matrices, where the alignment is already performed.
@@ -97,7 +97,7 @@ class ChainCombiner:
         def fun(arguments:dict):
             h0 = arguments["h0"]
             return self.combined_matrix(h0, arguments)
-        return _create_function(["h0"] + self.resonance_params, ls_couplings, fun)
+        return _create_function(["h0"] + self.resonance_params, ls_couplings, fun, complex_couplings=complex_couplings)
     
     def generate_couplings(self):
         """

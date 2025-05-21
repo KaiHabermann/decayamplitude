@@ -1,6 +1,6 @@
 from typing import Callable
 
-def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[tuple, float]]], f, complex_couplings=False) -> Callable:
+def _create_function(names:list[str], ls_couplings:dict[int, dict[str: dict[tuple, float]]], f, complex_couplings=False) -> tuple[Callable, list[str]]:
     from decayamplitude.resonance import LSTuple, Resonance
     import inspect
     import types
@@ -22,7 +22,10 @@ def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[tupl
                 coupling_names.append(name) # we need only define a name 
             coupling_structure[resonance_id][key] = name
     full_names = names + coupling_names
+    names_with_duplicates = full_names.copy()
     full_names = list(set(full_names)) # remove duplicates, since the same decay process can exist in multiple chains
+    # Sort the names to ensure consistent ordering as given from the outside
+    full_names.sort(key=lambda x: names_with_duplicates.index(x))
     # Define a generic function that accepts *args
     def func(*args, **kwargs):
         named_map = {name: arg for name, arg in zip(full_names, args)}
@@ -49,7 +52,7 @@ def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[tupl
     parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in full_names]
     sig = inspect.Signature(parameters)
     func.__signature__ = sig
-    return func, set(full_names)
+    return func, full_names
 
 def sanitize(name: str) -> str:
     """
