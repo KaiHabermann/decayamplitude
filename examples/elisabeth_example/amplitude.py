@@ -1,13 +1,12 @@
 from generate_momenta import make_four_vectors_from_dict
 from itertools import product
 from decayangle.decay_topology import Topology, TopologyCollection, HelicityAngles
-from decayangle.lorentz import LorentzTrafo
 from decayangle.config import config as decayangle_config
 import numpy as np 
 
 from decayamplitude.resonance import Resonance
-from decayamplitude.rotation import QN, Angular
-from decayamplitude.chain import DecayChain, MultiChain, AlignedChain
+from decayamplitude.rotation import QN
+from decayamplitude.chain import AlignedChain
 from decayamplitude.combiner import ChainCombiner
 
 from decayamplitude.backend import numpy as np
