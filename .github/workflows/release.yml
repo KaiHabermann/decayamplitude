@@ -27,7 +27,7 @@ jobs:
       # - name: Run tests # we expect the tests to be run in the `run-tests.yml` workflow
       #   run: hatch run test:cov
       - name: Upload distribution  📦
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: python-package-distributions
           path: dist/
