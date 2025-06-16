@@ -5,6 +5,7 @@ from functools import cached_property
 from decayangle.decay_topology import Topology, Node
 
 from decayangle.decay_topology import Topology, HelicityAngles, WignerAngles
+from decayamplitude.particle import Particle
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN, wigner_capital_d, Angular, convert_angular
 from decayamplitude.backend import numpy as np
@@ -18,7 +19,7 @@ class DecayChainNode:
     """
 
 
-    def __init__(self, node:Node, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN], topology:Topology, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
+    def __init__(self, node:Node, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN | Particle], topology:Topology, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
         """
         Initializes a DecayChainNode object. The object will contain a resonance and a topology.
 
@@ -411,7 +412,7 @@ class MultiChain(DecayChain):
 
         return new_obj
 
-    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN], resonances: Optional[dict[tuple, tuple[Resonance]]]=None, chains: Optional[list[DecayChain]]=None, convention:Optional[Literal["minus_phi", "helicity"]]="helicity") -> None:
+    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN | Particle], resonances: Optional[dict[tuple, tuple[Resonance]]]=None, chains: Optional[list[DecayChain]]=None, convention:Optional[Literal["minus_phi", "helicity"]]="helicity") -> None:
         """
         Initializes a MultiChain object. The object will contain a list of DecayChain objects.
 

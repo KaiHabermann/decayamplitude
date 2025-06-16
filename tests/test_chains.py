@@ -77,9 +77,5 @@ def test_multi_chain():
     combined = ChainCombiner([chain1, chain2])
     func, params = combined.unpolarized_amplitude(combined.generate_couplings())
 
-
-
-
-
 if __name__ == "__main__":
     test_multi_chain()
