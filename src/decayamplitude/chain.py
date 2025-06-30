@@ -408,7 +408,7 @@ class MultiChain(DecayChain):
         # with a given topology we can restrict the resonances to the nodes in the topology
         # this is usefull, if we only have one global dict of resonances
         filtered_resonances = resonances.filter_by_topology(topology)
-        chains = product(*[filtered_resonances[key] for key in filtered_resonances.keys() ])
+        chains =list( product(*[filtered_resonances[key] for key in filtered_resonances.keys() ]) )
         return [
             ResonanceDict({
                 key: chain[i].copy()
@@ -454,11 +454,14 @@ class MultiChain(DecayChain):
             self.convention = chains[0].convention
         elif resonances is not None:
             if not isinstance(resonances, ResonanceDict):
+                print(resonances.keys())
                 # if the resonances are not a ResonanceDict, we convert them to one
                 resonances = ResonanceDict(resonances)
             resonant_nodes = [node for node in topology.nodes.values() if not node.final_state]
             if any(node.value not in resonances and node.tuple not in resonances for node in resonant_nodes):
                 warnings.warn(f"Not all nodes have a resonance assigned: {resonances.keys()}, {list(map(lambda x: x.value,resonant_nodes))}")
+            print("creating chains from resonances")
+            print(type(self).create_chains(resonances, topology))
             self.chains = [
                 DecayChain(topology, chain_definition, momenta, final_state_qn, convention)
                 for chain_definition in type(self).create_chains(resonances, topology)
@@ -466,10 +469,14 @@ class MultiChain(DecayChain):
             def chain_filter(chain: DecayChain) -> bool:
                 try:
                     chain.generate_couplings()
-                except ValueError:
+                except ValueError as e:
+                    warnings.warn(f"Chain {chain} is not valid: {e}")
                     return False
                 return True
+            print(self.chains)
+            print(topology)
             self.chains = [chain for chain in self.chains if chain_filter(chain)]
+            print(self.chains)
             if not self.chains:
                 raise ValueError("There are no valid chains in the provided resonances! Check the resonances and the topology! Or check the quantum numbers!")
             self.convention = convention

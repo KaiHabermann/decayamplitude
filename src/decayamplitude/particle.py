@@ -73,7 +73,6 @@ class DecaySetup:
                 len(resonances_internal.get(node, [])) > 0 for node in topo_nodes
             )
 
-
         return list(
             filter(topology_filter,
                 toplogies

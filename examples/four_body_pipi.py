@@ -89,7 +89,7 @@ def amplitude(momenta):
     topologies = setup.filled_topologies(
         resonances=resonances
     )
-
+    print(f"TOPOLOGIES: {topologies}")
     chains = [
         MultiChain(
             topology=topology,

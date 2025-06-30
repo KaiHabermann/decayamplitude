@@ -373,17 +373,13 @@ class ResonanceDict:
         Returns a list of resonances that are relevant for the given topology.
         """
         filtered_resonances ={
-            self.stable_value(node.tuple): self.get(node.tuple, []) for node in topo.nodes.values() if not node.final_state
+            self.stable_value(node.value): self[node.value] for node in topo.nodes.values() if not node.final_state
         } 
-        filtered_resonances.update({
-            self.stable_value(topo.root.value): self.get(topo.root.value, default=self.get(0, default=None))
-        })
         filtered_resonances =  ResonanceDict(filtered_resonances)
         if filtered_resonances.get(
-            topo.root.value, default=None
+            self.stable_value(topo.root.value), default=None
         ) is None:
             raise ValueError(f"ResonanceDict: No root resonance found for topology {topo}. This is not allowed.")
-        print(filtered_resonances)
         return filtered_resonances
 
     def __set_item__(self, key:tuple, value:Resonance | list[Resonance]):
