@@ -9,6 +9,7 @@ from decayangle.decay_topology import Topology, HelicityAngles, WignerAngles
 from decayamplitude.particle import Particle
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN, wigner_capital_d, Angular, convert_angular
+from decayamplitude.resonance import ResonanceDict
 from decayamplitude.backend import numpy as np
 
 from decayamplitude.utils import _create_function, sanitize
@@ -20,7 +21,7 @@ class DecayChainNode:
     """
 
 
-    def __init__(self, node:Node, resonances: dict[tuple, Resonance], final_state_qn: dict[tuple, QN | Particle], topology:Topology, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
+    def __init__(self, node:Node, resonances: dict[tuple, Resonance] | ResonanceDict, final_state_qn: dict[int, QN | Particle], topology:Topology, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
         """
         Initializes a DecayChainNode object. The object will contain a resonance and a topology.
 
@@ -50,6 +51,9 @@ class DecayChainNode:
         self.tuple = self.node.tuple
         self.__is_root = self.node == topology.root
             
+        if not isinstance(resonances, ResonanceDict):
+            # if the resonances are not a ResonanceDict, we convert them to one
+            resonances = ResonanceDict(resonances)
         self.resonance: Union[Resonance, None] = resonances.get(self.tuple, resonances.get(self.node.value, None))
         if self.resonance is None and not self.final_state:
             raise ValueError(f"Resonance for {self.node.tuple} not found. Every internal node must have a resonance to describe its behaviour!")
@@ -205,8 +209,11 @@ class DecayChain:
     Class to represent a decay chain. This is a topology in connection with a set of resonances. One resonance for each internal node in the topology.
     """
 
-    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], convention:Literal["helicity", "minus_phi"]="helicity") -> None:
+    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance] | ResonanceDict, momenta: dict, final_state_qn: dict[int, QN | Particle], convention:Literal["helicity", "minus_phi"]="helicity") -> None:
         self.topology = topology
+        if not isinstance(resonances, ResonanceDict):
+            # if the resonances are not a ResonanceDict, we convert them to one
+            resonances = ResonanceDict(resonances)
         self.resonances = resonances
         self.momenta = momenta
         self.final_state_qn = final_state_qn
@@ -216,7 +223,7 @@ class DecayChain:
         if self.root_resonance is None:
             self.root_resonance = self.resonances.get(self.topology.root.tuple)
         if self.root_resonance is None:
-            raise ValueError(f"No root resonance found! The root resonance should be the decaying particle. The lineshape is irrelelevant for decay processes, but the quantum numbers are crucial! Define a root resonance under the key {self.topology.root.value} or {self.topology.root.tuple}.")
+            raise ValueError(f"No root resonance found! The root resonance should be the decaying particle. The lineshape is irrelelevant for decay processes, but the quantum numbers are crucial! Define a root resonance under the key {self.topology.root.value} or {self.topology.root.tuple}. Available resonances: {list(self.resonances.keys())}")
 
         # we need a sorted version of the particle keys to map matrix elements to the correct particle helicities later
         self.final_state_keys = sorted(final_state_qn.keys())
@@ -304,7 +311,7 @@ class AlignedChain(DecayChain):
     The aligned version of the decay chain. This is used to calculate the aligned amplitude, which is the amplitude in the final state helicity frame as defined by a reference topology or reference chain.
     """
 
-    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[tuple, QN], reference:Union[Topology, DecayChain], wigner_rotation: dict[tuple, WignerAngles]= None, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
+    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[int, QN | Particle], reference:Union[Topology, DecayChain], wigner_rotation: dict[tuple, WignerAngles]= None, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
         """
         Initializes an AlignedChain object. The object will contain a list of DecayChain objects.
         Parameters:
@@ -388,22 +395,25 @@ class AlignedChain(DecayChain):
     
 class MultiChain(DecayChain):
     @classmethod
-    def create_chains(cls, resonances: dict[tuple, tuple[Resonance]], topology: Topology | None = None) -> list[dict[tuple, Resonance]]:
+    def create_chains(cls, resonances: dict[tuple, tuple[Resonance]] | ResonanceDict, topology: Topology ) -> list[dict[tuple, Resonance]]:
         """
         Creates all possible chains from a dictionary with lists of reonances for each isobar
         """
-        if topology is not None:
-            # with a given topology we can restrict the resonances to the nodes in the topology
-            # this is usefull, if we only have one global dict of resonances
-            all_nodes = [node for node in topology.nodes]
-            resonances = {k: v for k, v in resonances.items() if k in all_nodes}
-        ordered_keys = list(resonances.keys())
-        chains = product(*[resonances[key] for key in ordered_keys])
+        if not isinstance(resonances, ResonanceDict):
+            # if the resonances are not a ResonanceDict, we convert them to one
+            resonances = ResonanceDict(resonances)
+
+        if topology is None:
+            raise ValueError("Topology must be provided to create chains from resonances")
+        # with a given topology we can restrict the resonances to the nodes in the topology
+        # this is usefull, if we only have one global dict of resonances
+        filtered_resonances = resonances.filter_by_topology(topology)
+        chains = product(*[filtered_resonances[key] for key in filtered_resonances.keys() ])
         return [
-            {
+            ResonanceDict({
                 key: chain[i].copy()
-                for i, key in enumerate(ordered_keys)
-            }
+                for i, key in enumerate(filtered_resonances.keys())
+            })
             for chain in chains
         ]
 
@@ -415,7 +425,7 @@ class MultiChain(DecayChain):
 
         return new_obj
 
-    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN | Particle], resonances: Optional[dict[tuple, tuple[Resonance]]]=None, chains: Optional[list[DecayChain]]=None, convention:Optional[Literal["minus_phi", "helicity"]]="helicity") -> None:
+    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[int, QN | Particle], resonances: Optional[dict[tuple, tuple[Resonance]]]=None, chains: Optional[list[DecayChain]]=None, convention:Optional[Literal["minus_phi", "helicity"]]="helicity") -> None:
         """
         Initializes a MultiChain object. The object will contain a list of DecayChain objects.
 
@@ -426,7 +436,7 @@ class MultiChain(DecayChain):
             The momenta of the decay chain
         final_state_qn: dict[tuple, QN]
             The quantum numbers of the final state particles
-        resonances: dict[tuple, tuple[Resonance]]
+        resonances: dict[tuple, tuple[Resonance]] | ResonanceDict
             A dictionary with a list of resonances for each isobar
         chains: list[DecayChain]
             A list of DecayChain objects
@@ -443,6 +453,9 @@ class MultiChain(DecayChain):
                 raise ValueError("All chains must have the same convention")
             self.convention = chains[0].convention
         elif resonances is not None:
+            if not isinstance(resonances, ResonanceDict):
+                # if the resonances are not a ResonanceDict, we convert them to one
+                resonances = ResonanceDict(resonances)
             resonant_nodes = [node for node in topology.nodes.values() if not node.final_state]
             if any(node.value not in resonances and node.tuple not in resonances for node in resonant_nodes):
                 warnings.warn(f"Not all nodes have a resonance assigned: {resonances.keys()}, {list(map(lambda x: x.value,resonant_nodes))}")
@@ -450,7 +463,7 @@ class MultiChain(DecayChain):
                 DecayChain(topology, chain_definition, momenta, final_state_qn, convention)
                 for chain_definition in type(self).create_chains(resonances, topology)
             ]
-            def chain_filter(chain):
+            def chain_filter(chain: DecayChain) -> bool:
                 try:
                     chain.generate_couplings()
                 except ValueError:
@@ -464,8 +477,6 @@ class MultiChain(DecayChain):
             raise ValueError("Either resonances or chains must be provided")
         if chains is not None and resonances is not None:
             raise ValueError("Either resonances or chains must be provided")
-
-        
 
     @property
     def chain_function(self) -> Callable:
@@ -561,7 +572,7 @@ class AlignedMultiChain(MultiChain):
             reference
         )
 
-    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[tuple, QN], reference:Union[Topology, DecayChain], resonances: Optional[dict[tuple, tuple[Resonance]]] = None, chains: Optional[list[DecayChain]] = None, wigner_rotation: dict[tuple, WignerAngles]= None, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
+    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[int, QN | Particle], reference:Union[Topology, DecayChain], resonances: Optional[dict[tuple, tuple[Resonance]] | ResonanceDict] = None, chains: Optional[list[DecayChain]] = None, wigner_rotation: dict[tuple, WignerAngles]= None, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
         super().__init__(topology, momenta, final_state_qn, resonances=resonances, chains=chains, convention=convention)
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
         if wigner_rotation is None:

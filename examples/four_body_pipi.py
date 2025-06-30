@@ -11,7 +11,7 @@
 # THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  
 
-from decayamplitude.resonance import Resonance
+from decayamplitude.resonance import Resonance, ResonanceDict
 from decayamplitude.rotation import QN
 from decayamplitude.chain import MultiChain
 from decayamplitude.combiner import ChainCombiner
@@ -61,7 +61,7 @@ def amplitude(momenta):
     #  ...
     #}
 
-    resonances = {
+    resonances = ResonanceDict({
         0:    [
             Resonance(Node(0), quantum_numbers=QN(0, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name='B0') 
             # Mother particle, set the QN to what they need to be for your decay. Usually a weak initial decay is assumed, so parity is not preserved. If this is not the case set it to True here or in the frontend.
@@ -84,7 +84,7 @@ def amplitude(momenta):
         (1, 2, 3): [
         Resonance(Node((1, 2, 3)), quantum_numbers=QN(2, -1), lineshape=BW_lineshape(mass_from_node(Node((1, 2, 3)), momenta)), argnames=['psi2S_mass', 'psi2S_width'], preserve_partity=True, name='psi(2S)')
         ]
-    }
+    })
 
     topologies = setup.filled_topologies(
         resonances=resonances

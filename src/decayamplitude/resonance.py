@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from decayangle.decay_topology import Node, HelicityAngles
+from decayangle.decay_topology import Node, HelicityAngles, Topology
 from decayamplitude.rotation import QN, Angular, clebsch_gordan, wigner_capital_d, convert_angular
-from typing import Union, Callable, Literal
+from typing import Sequence, Union, Callable, Literal, Generator
 from collections import namedtuple
 from functools import cached_property
 from decayamplitude.utils import sanitize
+
+import warnings
 
 
 LSTuple = namedtuple("LSTuple", ["l", "s"])
@@ -247,3 +249,147 @@ class Resonance:
             if parameter_name not in self.__parameter_names:
                 type(self).__parameter_names[parameter_name] = self
         return self
+    
+def flat_generator(tpl: tuple) -> Generator[Union[tuple, int]]:
+    """
+    Generator that flattens a tuple of tuples into a single tuple.
+    """
+    if isinstance(tpl, tuple) and not isinstance(tpl, list):
+        for item in tpl:
+            yield from flat_generator(item)
+    elif isinstance(tpl, int):
+        yield tpl
+    else:
+        raise TypeError(f"flat_generator: Expected tuple or int, got {type(tpl)} with value {tpl}.")
+
+class ResonanceDict:
+    def __init__(self, resonances: dict[tuple, Resonance | list[Resonance]]) -> None:
+        self.resonances = resonances
+
+        self.stable_value_dict = {self.stable_value(key): value for key, value in resonances.items()}
+        if len(self.stable_value_dict) != len(resonances):
+            duplicate_keys = set()
+            stable_keys = set(self.stable_value_dict.keys())
+            for key in resonances:
+                stable_key = self.stable_value(key)
+                if stable_key not in stable_keys:
+                    duplicate_keys.add(key)
+                else:
+                    stable_keys.remove(stable_key)
+            raise ValueError(f"ResonanceDict: Duplicate keys found in the resonance dictionary: {duplicate_keys}. This is not allowed.")
+        warnings.warn(f"ResonanceDict initialized with {len(self.stable_value_dict)} resonances.")
+
+    @classmethod
+    def stable_value(cls, value:tuple) -> tuple[int] | int:
+        """
+        Returns a stable value for the resonance dictionary keys.
+        This is needed, to make sure all nodes are treated the same.
+        """
+        base_value = tuple(sorted(flat_generator(value)))
+        if len(base_value) == 1:
+            return base_value[0]
+        return base_value
+
+    def __getitem__(self, key:tuple) -> Resonance:
+        """
+        Returns the resonance for the given key.
+        The key is a tuple of the form (l, s, h1, h2) or (h1, h2) depending on the scheme.
+        """
+        stable_key = self.stable_value(key)
+        return self.stable_value_dict[stable_key]
+    
+    def __contains__(self, key:tuple) -> bool:
+        """
+        Returns True if the resonance dictionary contains the key.
+        """
+        stable_key = self.stable_value(key)
+        return stable_key in self.stable_value_dict
+    
+    def __iter__(self):
+        """
+        Returns an iterator over the resonances in the dictionary.
+        """
+        return iter(self.stable_value_dict.keys())
+
+    def __len__(self):
+        """
+        Returns the number of resonances in the dictionary.
+        """
+        return len(self.stable_value_dict)
+    
+    def __str__(self):
+        """
+        Returns a string representation of the resonance dictionary.
+        """
+        return f"ResonanceDict with {len(self)} resonances: {', '.join([str(key) for key in self.stable_value_dict.keys()])}"
+    
+    def __repr__(self):
+        """
+        Returns a string representation of the resonance dictionary.
+        """
+        return self.__str__()
+    
+    def __eq__(self, other):
+        """
+        Returns True if the resonance dictionaries are equal.
+        """
+        if not isinstance(other, ResonanceDict):
+            return False
+        return self.stable_value_dict == other.stable_value_dict
+    
+    def __ne__(self, other):
+        """
+        Returns True if the resonance dictionaries are not equal.
+        """
+        return not self.__eq__(other)  
+
+    def get(self, key:tuple, default: Resonance| None=None) -> Resonance | list[Resonance] | None:
+        """
+        Returns the resonance for the given key or the default value if the key is not found.
+        """
+        stable_key = self.stable_value(key)
+        return self.stable_value_dict.get(stable_key, default)
+
+    def items(self):
+        """
+        Returns an iterator over the items in the resonance dictionary.
+        """
+        return self.stable_value_dict.items()
+    
+    def values(self):
+        """
+        Returns an iterator over the values in the resonance dictionary.
+        """
+        return self.stable_value_dict.values()
+    
+    def keys(self):
+        """
+        Returns an iterator over the keys in the resonance dictionary.
+        """
+        return self.stable_value_dict.keys()
+    
+    def filter_by_topology(self, topo: Topology) -> ResonanceDict:
+        """
+        Returns a list of resonances that are relevant for the given topology.
+        """
+        filtered_resonances ={
+            self.stable_value(node.tuple): self.get(node.tuple, []) for node in topo.nodes.values() if not node.final_state
+        } 
+        filtered_resonances.update({
+            self.stable_value(topo.root.value): self.get(topo.root.value, default=self.get(0, default=None))
+        })
+        filtered_resonances =  ResonanceDict(filtered_resonances)
+        if filtered_resonances.get(
+            topo.root.value, default=None
+        ) is None:
+            raise ValueError(f"ResonanceDict: No root resonance found for topology {topo}. This is not allowed.")
+        print(filtered_resonances)
+        return filtered_resonances
+
+    def __set_item__(self, key:tuple, value:Resonance | list[Resonance]):
+        """
+        Sets the resonance for the given key.
+        The key is a tuple of the form (l, s, h1, h2) or (h1, h2) depending on the scheme.
+        """
+        stable_key = self.stable_value(key)
+        self.stable_value_dict[stable_key] = value
