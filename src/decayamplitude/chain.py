@@ -1,5 +1,6 @@
 from typing import Union, Optional, Callable, Literal
 from itertools import product
+import warnings as warnings
 from functools import cached_property
 
 from decayangle.decay_topology import Topology, Node
@@ -101,6 +102,8 @@ class DecayChainNode:
         """
         if self.resonance is not None:
             return self.resonance.sanitized_name
+        if self.final_state and isinstance(self.final_state_qn, Particle):
+            return sanitize(f"particle_{self.final_state_qn.type_id}")
         return sanitize(f"particle_{self.node.value}")
     
     @property
@@ -442,7 +445,7 @@ class MultiChain(DecayChain):
         elif resonances is not None:
             resonant_nodes = [node for node in topology.nodes.values() if not node.final_state]
             if any(node.value not in resonances and node.tuple not in resonances for node in resonant_nodes):
-                raise ValueError(f"Not all nodes have a resonance assigned: {resonances.keys()}, {list(map(lambda x: x.value,resonant_nodes))}")
+                warnings.warn(f"Not all nodes have a resonance assigned: {resonances.keys()}, {list(map(lambda x: x.value,resonant_nodes))}")
             self.chains = [
                 DecayChain(topology, chain_definition, momenta, final_state_qn, convention)
                 for chain_definition in type(self).create_chains(resonances, topology)

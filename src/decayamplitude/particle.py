@@ -1,5 +1,7 @@
+from typing import Any
 from decayamplitude.rotation import QN, Angular
 from decayangle.decay_topology import Topology, TopologyCollection
+
 
 class Particle(QN):
     """
@@ -47,6 +49,34 @@ class DecaySetup:
         self.tc = TopologyCollection(0, list(self.final_state_particles), ordering_function=self.sorting_function)
     
     @property
-    def topologies(self):
+    def topologies(self) -> Topology:
         return self.tc.topologies
+
+    def filled_topologies(self, resonances: dict[tuple[int, ...], Any]):
+        toplogies = self.topologies
+        def flat(tpl):
+            if isinstance(tpl, tuple) or isinstance(tpl, list):
+                for item in tpl:
+                    yield from flat(item)
+            else:
+                yield tpl
+
+        def topology_filter(topo: Topology):
+            resonances_internal = {
+                tuple(sorted(flat(k))): v for k, v in resonances.items()
+            }
+            topo_nodes = [
+                tuple(sorted(flat(node.value))) for node in topo.nodes.values() if not node.final_state
+            ]
+
+            return all(
+                len(resonances_internal.get(node, [])) > 0 for node in topo_nodes
+            )
+
+
+        return list(
+            filter(topology_filter,
+                toplogies
+            )
+        )
 
