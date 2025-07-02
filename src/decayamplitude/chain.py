@@ -95,6 +95,8 @@ class DecayChainNode:
         """
         if self.resonance is not None:
             return self.resonance.name
+        if isinstance(self.quantum_numbers, Particle):
+            return f"particle_type_{self.quantum_numbers.type_id}"
         return f"particle_{self.node.value}"
     
     @property
@@ -106,9 +108,7 @@ class DecayChainNode:
         """
         if self.resonance is not None:
             return self.resonance.sanitized_name
-        if self.final_state and isinstance(self.final_state_qn, Particle):
-            return sanitize(f"particle_{self.final_state_qn.type_id}")
-        return sanitize(f"particle_{self.node.value}")
+        return sanitize(self.name)
     
     @property
     def is_root(self):
@@ -422,7 +422,6 @@ class MultiChain(DecayChain):
         new_obj = cls(chains[0].topology, chains[0].momenta, chains[0].final_state_qn, chains=chains)
         if any(chain.topology != chains[0].topology for chain in chains):
             raise ValueError("All chains must have the same topology")
-
         return new_obj
 
     def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[int, QN | Particle], resonances: Optional[dict[tuple, tuple[Resonance]]]=None, chains: Optional[list[DecayChain]]=None, convention:Optional[Literal["minus_phi", "helicity"]]="helicity") -> None:
@@ -460,8 +459,6 @@ class MultiChain(DecayChain):
             resonant_nodes = [node for node in topology.nodes.values() if not node.final_state]
             if any(node.value not in resonances and node.tuple not in resonances for node in resonant_nodes):
                 warnings.warn(f"Not all nodes have a resonance assigned: {resonances.keys()}, {list(map(lambda x: x.value,resonant_nodes))}")
-            print("creating chains from resonances")
-            print(type(self).create_chains(resonances, topology))
             self.chains = [
                 DecayChain(topology, chain_definition, momenta, final_state_qn, convention)
                 for chain_definition in type(self).create_chains(resonances, topology)
@@ -473,10 +470,7 @@ class MultiChain(DecayChain):
                     warnings.warn(f"Chain {chain} is not valid: {e}")
                     return False
                 return True
-            print(self.chains)
-            print(topology)
             self.chains = [chain for chain in self.chains if chain_filter(chain)]
-            print(self.chains)
             if not self.chains:
                 raise ValueError("There are no valid chains in the provided resonances! Check the resonances and the topology! Or check the quantum numbers!")
             self.convention = convention

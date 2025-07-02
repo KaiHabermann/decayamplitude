@@ -45,7 +45,7 @@ final_state_qn = {
     1: Particle(quantum_numbers=QN(2, -1), type_id=1), # name for orientation: J/psi(1S)
     2: Particle(quantum_numbers=QN(0, -1), type_id=2), # name for orientation: pi+
     3: Particle(quantum_numbers=QN(0, -1), type_id=3), # name for orientation: pi-
-    4: Particle(quantum_numbers=QN(0, -1), type_id=4), # name for orientation: K+
+    4: Particle(quantum_numbers=QN(0, -1), type_id=2), # name for orientation: pi+
     5: Particle(quantum_numbers=QN(0, -1), type_id=3), # name for orientation: pi-
 }
 
