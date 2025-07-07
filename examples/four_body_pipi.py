@@ -42,11 +42,11 @@ def BW_lineshape(mass):
 
         
 final_state_qn = {
-    1: Particle(quantum_numbers=QN(2, -1), type_id=1), # name for orientation: J/psi(1S)
-    2: Particle(quantum_numbers=QN(0, -1), type_id=2), # name for orientation: pi+
-    3: Particle(quantum_numbers=QN(0, -1), type_id=3), # name for orientation: pi-
-    4: Particle(quantum_numbers=QN(0, -1), type_id=2), # name for orientation: pi+
-    5: Particle(quantum_numbers=QN(0, -1), type_id=3), # name for orientation: pi-
+    1: Particle(quantum_numbers=QN(2, -1), name="J/psi(1S)"), # name for orientation: J/psi(1S)
+    2: Particle(quantum_numbers=QN(0, -1), name="pi+"), # name for orientation: pi+
+    3: Particle(quantum_numbers=QN(0, -1), name="pi-"), # name for orientation: pi-
+    4: Particle(quantum_numbers=QN(0, -1), name="pi+"), # name for orientation: pi+
+    5: Particle(quantum_numbers=QN(0, -1), name="pi-"), # name for orientation: pi-
 }
 
 setup = DecaySetup(final_state_particles=final_state_qn, initial_state=Particle(quantum_numbers=QN(0, 1))) # name for orientation: B0

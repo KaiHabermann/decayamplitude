@@ -96,6 +96,8 @@ class DecayChainNode:
         if self.resonance is not None:
             return self.resonance.name
         if isinstance(self.quantum_numbers, Particle):
+            if self.quantum_numbers.name is not None:
+                return f"{sanitize(self.quantum_numbers.name)}"
             return f"particle_type_{self.quantum_numbers.type_id}"
         return f"particle_{self.node.value}"
     

@@ -67,10 +67,12 @@ def sanitize(name: str) -> str:
         ("{", ""),
         ("}", ""),
     ] + [
-        (a, "_") for a in " -+.,/\\^'\"~!?=>|&$#@%;:`´§°"
+        (a, "_") for a in " .,/\\^'\"~!?=>|&$#@%;:`´§°"
     ]
     for replacement in replacements:
         name = name.replace(*replacement)
+    name = name.replace("+", "plus")
+    name = name.replace("-", "minus")
     
     return name
     

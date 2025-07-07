@@ -11,7 +11,20 @@ class Particle(QN):
     Otherwise one needs to apply a transformation to the couplings, wich would be non-trivial to ensure correctness on through the entire decay tree.
     """
 
-    def __init__(self, spin: Angular | int = None, parity: int = None, quantum_numbers: QN = None, type_id: int = None):
+    global_names = {}
+
+    @classmethod
+    def add_named_partice(cls, name):
+        if name in cls.global_names:
+            return cls.global_names[name]
+        if len(cls.global_names) == 0:
+            new_id = 0
+        else:
+            new_id = max(cls.global_names.values()) + 1
+        cls.global_names[name] = new_id
+        return new_id
+
+    def __init__(self, spin: Angular | int = None, parity: int = None, quantum_numbers: QN = None, type_id: int = None, name=None):
         if quantum_numbers is None:
             if spin is None or parity is None:
                 raise ValueError("Either quantum_numbers or spin and parity must be provided.")
@@ -21,6 +34,9 @@ class Particle(QN):
         self.angular = self.quantum_numbers.angular
         self.parity = self.quantum_numbers.parity
         self.type_id = type_id
+        self.name = name
+        if self.type_id is None and self.name is not None:
+            self.type_id = Particle.add_named_partice(self.name)
 
 class DecaySetup:
     def __init__(self, final_state_particles: dict[int, Particle], initial_state: QN | Particle):
