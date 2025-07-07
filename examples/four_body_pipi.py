@@ -49,7 +49,7 @@ final_state_qn = {
     5: Particle(quantum_numbers=QN(0, -1), name="pi-"), # name for orientation: pi-
 }
 
-setup = DecaySetup(final_state_particles=final_state_qn, initial_state=Particle(quantum_numbers=QN(0, 1))) # name for orientation: B0
+setup = DecaySetup(final_state_particles=final_state_qn)
 
 topologies = setup.topologies  # This ensures correct symmetrization
 

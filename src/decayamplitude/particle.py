@@ -39,9 +39,8 @@ class Particle(QN):
             self.type_id = Particle.add_named_partice(self.name)
 
 class DecaySetup:
-    def __init__(self, final_state_particles: dict[int, Particle], initial_state: QN | Particle):
+    def __init__(self, final_state_particles: dict[int, Particle]):
         self.final_state_particles = final_state_particles
-        self.initial_state = initial_state
 
         if any(p.type_id for p in self.final_state_particles.values()):
             print(f"At least one particle has a given type_id.")

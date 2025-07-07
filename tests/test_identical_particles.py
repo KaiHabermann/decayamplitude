@@ -23,7 +23,7 @@ def test_3_body():
         3: Particle(spin=1, parity=-1),
     }
 
-    setup = DecaySetup(final_state_particles=final_state, initial_state=mother)
+    setup = DecaySetup(final_state_particles=final_state)
     tuples = tuple(
         topo.tuple for topo in setup.topologies
     )
@@ -40,7 +40,7 @@ def test_4_body():
     }
     mother = Particle(spin=0, parity=1)
 
-    setup = DecaySetup(final_state_particles=final_state, initial_state=mother)
+    setup = DecaySetup(final_state_particles=final_state)
     tuples = tuple(
         topo.tuple for topo in setup.topologies
     )
@@ -64,7 +64,7 @@ def test_5_body():
     }
     mother = Particle(spin=0, parity=1)
 
-    setup = DecaySetup(final_state_particles=final_state, initial_state=mother)
+    setup = DecaySetup(final_state_particles=final_state)
     tuples = tuple(
         topo.tuple for topo in setup.topologies
     )
