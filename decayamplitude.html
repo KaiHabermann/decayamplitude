@@ -1,0 +1,332 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>decayamplitude package &mdash; decayamplitude 09.02.2025 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=b839af5d"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            decayamplitude
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">decayamplitude package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-decayamplitude.arguments">decayamplitude.arguments module</a><ul>
+<li><a class="reference internal" href="#decayamplitude.arguments.AmplitudeParameters"><code class="docutils literal notranslate"><span class="pre">AmplitudeParameters</span></code></a><ul>
+<li><a class="reference internal" href="#decayamplitude.arguments.AmplitudeParameters.decode"><code class="docutils literal notranslate"><span class="pre">AmplitudeParameters.decode()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-decayamplitude.backend">decayamplitude.backend module</a></li>
+<li><a class="reference internal" href="#decayamplitude-chain-module">decayamplitude.chain module</a></li>
+<li><a class="reference internal" href="#decayamplitude-combiner-module">decayamplitude.combiner module</a></li>
+<li><a class="reference internal" href="#decayamplitude-kinematics-helpers-module">decayamplitude.kinematics_helpers module</a></li>
+<li><a class="reference internal" href="#decayamplitude-particle-module">decayamplitude.particle module</a></li>
+<li><a class="reference internal" href="#decayamplitude-resonance-module">decayamplitude.resonance module</a></li>
+<li><a class="reference internal" href="#module-decayamplitude.rotation">decayamplitude.rotation module</a><ul>
+<li><a class="reference internal" href="#decayamplitude.rotation.Angular"><code class="docutils literal notranslate"><span class="pre">Angular</span></code></a><ul>
+<li><a class="reference internal" href="#decayamplitude.rotation.Angular.couple"><code class="docutils literal notranslate"><span class="pre">Angular.couple()</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.Angular.generate_helicities"><code class="docutils literal notranslate"><span class="pre">Angular.generate_helicities()</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.Angular.index"><code class="docutils literal notranslate"><span class="pre">Angular.index()</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.Angular.parity"><code class="docutils literal notranslate"><span class="pre">Angular.parity</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.Angular.projections"><code class="docutils literal notranslate"><span class="pre">Angular.projections()</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.Angular.value"><code class="docutils literal notranslate"><span class="pre">Angular.value</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.Angular.value2"><code class="docutils literal notranslate"><span class="pre">Angular.value2</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#decayamplitude.rotation.QN"><code class="docutils literal notranslate"><span class="pre">QN</span></code></a><ul>
+<li><a class="reference internal" href="#decayamplitude.rotation.QN.couple"><code class="docutils literal notranslate"><span class="pre">QN.couple()</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.QN.generate_L_states"><code class="docutils literal notranslate"><span class="pre">QN.generate_L_states()</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.QN.projections"><code class="docutils literal notranslate"><span class="pre">QN.projections()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#decayamplitude.rotation.clebsch_gordan"><code class="docutils literal notranslate"><span class="pre">clebsch_gordan()</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.convert_angular"><code class="docutils literal notranslate"><span class="pre">convert_angular()</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.get_wigner_function"><code class="docutils literal notranslate"><span class="pre">get_wigner_function()</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.wigner_capital_d"><code class="docutils literal notranslate"><span class="pre">wigner_capital_d()</span></code></a></li>
+<li><a class="reference internal" href="#decayamplitude.rotation.wigner_small_d"><code class="docutils literal notranslate"><span class="pre">wigner_small_d()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-decayamplitude.utils">decayamplitude.utils module</a><ul>
+<li><a class="reference internal" href="#decayamplitude.utils.sanitize"><code class="docutils literal notranslate"><span class="pre">sanitize()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-decayamplitude">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">decayamplitude</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">decayamplitude package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/decayamplitude.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="decayamplitude-package">
+<h1>decayamplitude package<a class="headerlink" href="#decayamplitude-package" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-decayamplitude.arguments">
+<span id="decayamplitude-arguments-module"></span><h2>decayamplitude.arguments module<a class="headerlink" href="#module-decayamplitude.arguments" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="decayamplitude.arguments.AmplitudeParameters">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">decayamplitude.arguments.</span></span><span class="sig-name descname"><span class="pre">AmplitudeParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">function_arguments</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">couplings</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.arguments.AmplitudeParameters" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="decayamplitude.arguments.AmplitudeParameters.decode">
+<span class="sig-name descname"><span class="pre">decode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">couplings</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.arguments.AmplitudeParameters.decode" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-decayamplitude.backend">
+<span id="decayamplitude-backend-module"></span><h2>decayamplitude.backend module<a class="headerlink" href="#module-decayamplitude.backend" title="Link to this heading"></a></h2>
+</section>
+<section id="decayamplitude-chain-module">
+<h2>decayamplitude.chain module<a class="headerlink" href="#decayamplitude-chain-module" title="Link to this heading"></a></h2>
+</section>
+<section id="decayamplitude-combiner-module">
+<h2>decayamplitude.combiner module<a class="headerlink" href="#decayamplitude-combiner-module" title="Link to this heading"></a></h2>
+</section>
+<section id="decayamplitude-kinematics-helpers-module">
+<h2>decayamplitude.kinematics_helpers module<a class="headerlink" href="#decayamplitude-kinematics-helpers-module" title="Link to this heading"></a></h2>
+</section>
+<section id="decayamplitude-particle-module">
+<h2>decayamplitude.particle module<a class="headerlink" href="#decayamplitude-particle-module" title="Link to this heading"></a></h2>
+</section>
+<section id="decayamplitude-resonance-module">
+<h2>decayamplitude.resonance module<a class="headerlink" href="#decayamplitude-resonance-module" title="Link to this heading"></a></h2>
+</section>
+<section id="module-decayamplitude.rotation">
+<span id="decayamplitude-rotation-module"></span><h2>decayamplitude.rotation module<a class="headerlink" href="#module-decayamplitude.rotation" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="decayamplitude.rotation.Angular">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">decayamplitude.rotation.</span></span><span class="sig-name descname"><span class="pre">Angular</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">angular_momentum</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.Angular" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="decayamplitude.rotation.Angular.couple">
+<span class="sig-name descname"><span class="pre">couple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.Angular.couple" title="Link to this definition"></a></dt>
+<dd><p>Couple two angular momenta</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="decayamplitude.rotation.Angular.generate_helicities">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">generate_helicities</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">angular_momenta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#decayamplitude.rotation.Angular" title="decayamplitude.rotation.Angular"><span class="pre">Angular</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#decayamplitude.rotation.Angular.generate_helicities" title="Link to this definition"></a></dt>
+<dd><p>Generate all possible helicities for a given set of angular momenta</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="decayamplitude.rotation.Angular.index">
+<span class="sig-name descname"><span class="pre">index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.Angular.index" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="decayamplitude.rotation.Angular.parity">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">parity</span></span><a class="headerlink" href="#decayamplitude.rotation.Angular.parity" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="decayamplitude.rotation.Angular.projections">
+<span class="sig-name descname"><span class="pre">projections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">return_int</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.Angular.projections" title="Link to this definition"></a></dt>
+<dd><p>Returns the possible projections of the angular momentum</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="decayamplitude.rotation.Angular.value">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">value</span></span><a class="headerlink" href="#decayamplitude.rotation.Angular.value" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="decayamplitude.rotation.Angular.value2">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">value2</span></span><a class="headerlink" href="#decayamplitude.rotation.Angular.value2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="decayamplitude.rotation.QN">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">decayamplitude.rotation.</span></span><span class="sig-name descname"><span class="pre">QN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">angular_momentum</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#decayamplitude.rotation.Angular" title="decayamplitude.rotation.Angular"><span class="pre">Angular</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">parity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.QN" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="decayamplitude.rotation.QN.couple">
+<span class="sig-name descname"><span class="pre">couple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.QN.couple" title="Link to this definition"></a></dt>
+<dd><p>Couple two quantum numbers</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="decayamplitude.rotation.QN.generate_L_states">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">generate_L_states</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#decayamplitude.rotation.QN" title="decayamplitude.rotation.QN"><span class="pre">QN</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">state1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#decayamplitude.rotation.QN" title="decayamplitude.rotation.QN"><span class="pre">QN</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">state2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#decayamplitude.rotation.QN" title="decayamplitude.rotation.QN"><span class="pre">QN</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Generator</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#decayamplitude.rotation.QN" title="decayamplitude.rotation.QN"><span class="pre">QN</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#decayamplitude.rotation.QN" title="decayamplitude.rotation.QN"><span class="pre">QN</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#decayamplitude.rotation.QN.generate_L_states" title="Link to this definition"></a></dt>
+<dd><p>state0 -&gt; state1 + state2
+S = coupled spins of state 1 and state 2
+L = angular momentum of the 1-2 system
+L can be covered by coupling J with state0, since the possible L values arise from coupling J with a series of L values and looking which one can in turn couple to state0 spin. This is in pricinple due to detailed balance.</p>
+<p>params:
+state0 : QN</p>
+<blockquote>
+<div><p>Quantum numbers of the initial state</p>
+</div></blockquote>
+<dl class="simple">
+<dt>state1<span class="classifier">QN</span></dt><dd><p>Quantum numbers of the first final state</p>
+</dd>
+<dt>state2<span class="classifier">QN</span></dt><dd><p>Quantum numbers of the second final state</p>
+</dd>
+</dl>
+<p>returns:
+Generator[tuple[QN, QN]]</p>
+<blockquote>
+<div><p>Generator of possible (L, S) states
+Partity is not given, since it is defined by state0</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="decayamplitude.rotation.QN.projections">
+<span class="sig-name descname"><span class="pre">projections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">return_int</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.QN.projections" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="decayamplitude.rotation.clebsch_gordan">
+<span class="sig-prename descclassname"><span class="pre">decayamplitude.rotation.</span></span><span class="sig-name descname"><span class="pre">clebsch_gordan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">j1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">j2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">J</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.clebsch_gordan" title="Link to this definition"></a></dt>
+<dd><p>Return clebsch-Gordan coefficient. Note that all arguments should be multiplied by 2
+(e.g. 1 for spin 1/2, 2 for spin 1 etc.). Needs sympy.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="decayamplitude.rotation.convert_angular">
+<span class="sig-prename descclassname"><span class="pre">decayamplitude.rotation.</span></span><span class="sig-name descname"><span class="pre">convert_angular</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.convert_angular" title="Link to this definition"></a></dt>
+<dd><p>Wrapper to convert all passed values of type Angular to type int</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="decayamplitude.rotation.get_wigner_function">
+<span class="sig-prename descclassname"><span class="pre">decayamplitude.rotation.</span></span><span class="sig-name descname"><span class="pre">get_wigner_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">j</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.get_wigner_function" title="Link to this definition"></a></dt>
+<dd><p>Return Wigner small-d function. Note that all arguments should be multiplied by 2
+(e.g. 1 for spin 1/2, 2 for spin 1 etc.). Needs sympy.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="decayamplitude.rotation.wigner_capital_d">
+<span class="sig-prename descclassname"><span class="pre">decayamplitude.rotation.</span></span><span class="sig-name descname"><span class="pre">wigner_capital_d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.wigner_capital_d" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="decayamplitude.rotation.wigner_small_d">
+<span class="sig-prename descclassname"><span class="pre">decayamplitude.rotation.</span></span><span class="sig-name descname"><span class="pre">wigner_small_d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">theta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">j</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#decayamplitude.rotation.wigner_small_d" title="Link to this definition"></a></dt>
+<dd><dl class="simple">
+<dt>Calculate Wigner small-d function. Needs sympy.</dt><dd><p>theta : angle
+j : spin (in units of 1/2, e.g. 1 for spin=1/2)
+m1 and m2 : spin projections (in units of 1/2)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>theta</strong></p></li>
+<li><p><strong>j</strong></p></li>
+<li><p><strong>m1</strong> – before rotation</p></li>
+<li><p><strong>m2</strong> – after rotation</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-decayamplitude.utils">
+<span id="decayamplitude-utils-module"></span><h2>decayamplitude.utils module<a class="headerlink" href="#module-decayamplitude.utils" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="decayamplitude.utils.sanitize">
+<span class="sig-prename descclassname"><span class="pre">decayamplitude.utils.</span></span><span class="sig-name descname"><span class="pre">sanitize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#decayamplitude.utils.sanitize" title="Link to this definition"></a></dt>
+<dd><p>Sanitize a name for use in python code</p>
+</dd></dl>
+
+</section>
+<section id="module-decayamplitude">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-decayamplitude" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Kai Habermann.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
