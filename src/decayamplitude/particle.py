@@ -68,7 +68,7 @@ class DecaySetup:
         return self.tc.topologies
     
     def symmetrize(self, topo: Topology) -> list[Topology]:
-        return Topology(topo.root, topo.tuple, ordering_function=self.sorting_function)
+        return Topology(topo.root.value, topo.tuple, ordering_function=self.sorting_function)
 
     def filled_topologies(self, resonances: dict[tuple[int, ...], Any]):
         toplogies = self.topologies
