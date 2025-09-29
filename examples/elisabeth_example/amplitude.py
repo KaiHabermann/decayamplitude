@@ -91,36 +91,36 @@ class Amplitude:
         matrix_function, matrix_argnames = self.chain.aligned_matrix_function(self.chain.generate_couplings())
         
         couplings_m1_m1 = {
-            "Lc_H_-3_0": 0,
-            "Lc_H_-1_0": 1,
+            "Lc_H_m3_0": 0,
+            "Lc_H_m1_0": 1,
             "Lc_H_1_0": 0,
             "Lc_H_3_0": 0,
             "L_1520_H_1_0": 0,
-            "L_1520_H_-1_0":  1/ (4)**0.5,
+            "L_1520_H_m1_0":  1/ (4)**0.5,
         }
         couplings_1_m1 = {
-            "Lc_H_-3_0": 0,
-            "Lc_H_-1_0": 0,
+            "Lc_H_m3_0": 0,
+            "Lc_H_m1_0": 0,
             "Lc_H_1_0": 1,
             "Lc_H_3_0": 0,
             "L_1520_H_1_0": 0,
-            "L_1520_H_-1_0": 1/ (4)**0.5,
+            "L_1520_H_m1_0": 1/ (4)**0.5,
         }
         couplings_m1_1 = {
-            "Lc_H_-3_0": 0,
-            "Lc_H_-1_0": 1,
+            "Lc_H_m3_0": 0,
+            "Lc_H_m1_0": 1,
             "Lc_H_1_0": 0,
             "Lc_H_3_0": 0,
             "L_1520_H_1_0":  1/ (4)**0.5,
-            "L_1520_H_-1_0": 0,
+            "L_1520_H_m1_0": 0,
         }
         couplings_1_1 = {
-            "Lc_H_-3_0": 0,
-            "Lc_H_-1_0": 0,
+            "Lc_H_m3_0": 0,
+            "Lc_H_m1_0": 0,
             "Lc_H_1_0": 1,
             "Lc_H_3_0": 0,
             "L_1520_H_1_0":  1/ (4)**0.5,
-            "L_1520_H_-1_0": 0,
+            "L_1520_H_m1_0": 0,
         }
 
         arguments_1_1 = {

@@ -1,6 +1,17 @@
 from typing import Callable
 from decayamplitude.resonance import LSTuple, Resonance
 
+def sanitize(name: str) -> str:
+    """Sanitize a string to be a valid Python identifier."""
+    import re
+    substitutions = {
+        "+": "p",
+        "-": "m"
+    }
+    for old, new in substitutions.items():
+        name = name.replace(old, new)
+    return name
+
 def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[LSTuple, float]]], f) -> Callable:
     import inspect
     import types
@@ -14,9 +25,9 @@ def _create_function(names:list[set], ls_couplings:dict[int, dict[str: dict[LSTu
         for key, _ in coupling_dict["couplings"].items():
             resonance = Resonance.get_instance(resonance_id)
             if resonance.name is None:
-                name = f"COUPLING_ID_{resonance_id}_{'LS' if resonance.scheme == 'ls' else 'H'}_{'_'.join([str(k) for k in key])}"
+                name = f"COUPLING_ID_{resonance_id}_{'LS' if resonance.scheme == 'ls' else 'H'}_{'_'.join([sanitize(str(k)) for k in key])}"
             else:
-                name = f"{resonance.sanitized_name}_{'LS' if resonance.scheme == 'ls' else 'H'}_{'_'.join([str(k) for k in key])}"
+                name = f"{resonance.sanitized_name}_{'LS' if resonance.scheme == 'ls' else 'H'}_{'_'.join([sanitize(str(k)) for k in key])}"
             coupling_names.append(name) # we need only define a name 
             coupling_structure[resonance_id][key] = name
     full_names = names + coupling_names
