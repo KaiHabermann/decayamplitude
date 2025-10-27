@@ -21,12 +21,7 @@ from decayangle.decay_topology import Topology, Node
 from decayangle.config import config as decayangle_config
 from decayamplitude.kinematics_helpers import mass_from_node
 
-from decayshape.lineshapes import RelativisticBreitWigner, Flatte
-from decayshape.base import FixedParam
-from decayshape.kmatrix_advanced import KMatrixAdvanced
 import jax
-from decayshape import config as ds_config
-ds_config.set_backend("jax")
 
 decayangle_config.backend = "numpy"
 decayangle_config.sorting = "value"  # this makes sure, that the order of entries in a node is handeled internaly and we do not have to worry about it
