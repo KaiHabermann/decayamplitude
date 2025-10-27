@@ -62,4 +62,4 @@ cov = 'pytest --cov-report=term-missing --cov-report=xml --cov-config=pyproject.
 
 [[tool.hatch.envs.test.matrix]]
 python = ["312", "311", "310"] 
-version = ["0.1.1"]
+version = ["0.1.2"]
