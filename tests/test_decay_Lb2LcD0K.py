@@ -92,13 +92,13 @@ def amplitude(momenta):
             ],
         
         (2, 3): [
-        Resonance(Node((2, 3)), quantum_numbers=QN(2, -1), lineshape=KMatrixAdvanced(s=mass_from_node(Node((2, 3)), momenta)**2, **{'pole_masses': [2713, 2967.1], 'production_couplings': [1, 1], 'decay_couplings': [1, 1, 1, 1], 'r': 1, 'q0': None, 'channels': [{'particle1': FixedParam(value={'mass': 1.8648382813011999, 'spin': 0, 'parity': -1}), 'particle2': FixedParam(value={'mass': 0.49367659945804093, 'spin': 0, 'parity': -1})}, {'particle1': FixedParam(value={'mass': 2.00685250214198, 'spin': 2, 'parity': -1}), 'particle2': FixedParam(value={'mass': 0.49367659945804093, 'spin': 0, 'parity': -1})}], 'output_channel': 0}), argnames=['D_s_Kmatrix_pole_mass_0','D_s_Kmatrix_pole_mass_1','D_s_Kmatrix_production_coupling_0','D_s_Kmatrix_production_coupling_1','D_s_Kmatrix_decay_coupling_0_0','D_s_Kmatrix_decay_coupling_0_1','D_s_Kmatrix_decay_coupling_1_0','D_s_Kmatrix_decay_coupling_1_1','D_s_Kmatrix_r','D_s_Kmatrix_q0'], preserve_partity=True, name='D_s_Kmatrix'),
-            Resonance(Node((2, 3)), quantum_numbers=QN(0, 1), lineshape=Flatte(s=mass_from_node(Node((2, 3)), momenta)**2, **{'pole_mass': 2.317, 'width1': 1, 'width2': 3.2, 'r1': 0, 'r2': 0, 'q01': None, 'q02': None, 'channel1': {'particle1': FixedParam(value={'mass': 1.8648382813011999, 'spin': 0, 'parity': -1}), 'particle2': FixedParam(value={'mass': 0.49367659945804093, 'spin': 0, 'parity': -1})}, 'channel2': {'particle1': FixedParam(value={'mass': 1.8648382813011999, 'spin': 0, 'parity': -1}), 'particle2': FixedParam(value={'mass': 0.139570390983681, 'spin': 0, 'parity': -1})}}), argnames=['D_s0_star2317__pole_mass','D_s0_star2317__width1','D_s0_star2317__width2','D_s0_star2317__r1','D_s0_star2317__r2','D_s0_star2317__q01','D_s0_star2317__q02'], preserve_partity=True, name='D_s0^*(2317)-')
+        Resonance(Node((2, 3)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name='D_s_Kmatrix'),
+            Resonance(Node((2, 3)), quantum_numbers=QN(0, 1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name='D_s0^*(2317)-')
         ],
 
         (1, 3): [
-        Resonance(Node((1, 3)), quantum_numbers=QN(3, -1), lineshape=RelativisticBreitWigner(s=mass_from_node(Node((1, 3)), momenta)**2, **{'pole_mass': 2.81978511080299, 'width': 0.00254, 'r': 1, 'q0': None, 'channel': {'particle1': FixedParam(value={'mass': 2.28646158306563, 'spin': 1, 'parity': 1}), 'particle2': FixedParam(value={'mass': 0.49367659945804093, 'spin': 0, 'parity': -1})}}), argnames=['Xi_c28150_pole_mass','Xi_c28150_width','Xi_c28150_r','Xi_c28150_q0'], preserve_partity=True, name='Xi_c(2815)0'),
-            Resonance(Node((1, 3)), quantum_numbers=QN(1, -1), lineshape=RelativisticBreitWigner(s=mass_from_node(Node((1, 3)), momenta)**2, **{'pole_mass': 2.923, 'width': 0.0071, 'r': 1, 'q0': None, 'channel': {'particle1': FixedParam(value={'mass': 2.28646158306563, 'spin': 1, 'parity': 1}), 'particle2': FixedParam(value={'mass': 0.49367659945804093, 'spin': 0, 'parity': -1})}}), argnames=['Xi_c2923_pole_mass','Xi_c2923_width','Xi_c2923_r','Xi_c2923_q0'], preserve_partity=True, name='Xi_c(2923)')
+        Resonance(Node((1, 3)), quantum_numbers=QN(3, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name='Xi_c(2815)0'),
+            Resonance(Node((1, 3)), quantum_numbers=QN(1, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=True, name='Xi_c(2923)')
         ]
     }
 
@@ -113,7 +113,7 @@ def amplitude(momenta):
     ]
     full = ChainCombiner(chains)
     # Start parameters for lineshape fitting
-    start_parameters = {"D_s_Kmatrix_pole_mass_0": 2713.0, "D_s_Kmatrix_pole_mass_1": 2967.1, "D_s_Kmatrix_production_coupling_0": 1.0, "D_s_Kmatrix_production_coupling_1": 1.0, "D_s_Kmatrix_decay_coupling_0_0": 1.0, "D_s_Kmatrix_decay_coupling_0_1": 1.0, "D_s_Kmatrix_decay_coupling_1_0": 1.0, "D_s_Kmatrix_decay_coupling_1_1": 1.0, "D_s_Kmatrix_r": 1.0, "D_s_Kmatrix_q0": None, "D_s0_star2317__pole_mass": 2.317, "D_s0_star2317__width1": 1.0, "D_s0_star2317__width2": 3.2, "D_s0_star2317__r1": 0.0, "D_s0_star2317__r2": 0.0, "D_s0_star2317__q01": 1.1585, "D_s0_star2317__q02": 1.1585, "Xi_c28150_pole_mass": 2.81978511080299, "Xi_c28150_width": 0.00254, "Xi_c28150_r": 1.0, "Xi_c28150_q0": None, "Xi_c2923_pole_mass": 2.923, "Xi_c2923_width": 0.0071, "Xi_c2923_r": 1.0, "Xi_c2923_q0": None}
+    start_parameters = {}
     
     # Add start parameters to the full object for easy access
     full.start_parameters = start_parameters
