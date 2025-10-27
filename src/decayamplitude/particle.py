@@ -3,6 +3,24 @@ from decayamplitude.rotation import QN, Angular
 from decayangle.decay_topology import Topology, TopologyCollection
 
 
+def sorting_function(x, final_state_particles: dict[int, "Particle"]):
+    def key(x):
+        if not isinstance(x, int):
+            return -len(x) * 10000 + key(x[0])
+        else:
+            return final_state_particles[x].type_id
+    if isinstance(x, tuple) or isinstance(x, list):
+        return tuple(sorted(x, key=key))
+    else:
+        return key(x)
+
+class SortingFunction:
+    def __init__(self, final_state_particles: dict[int, "Particle"]):
+        self.final_state_particles = final_state_particles
+
+    def __call__(self, x):
+        return sorting_function(x, self.final_state_particles)
+
 class Particle(QN):
     """
     Particle class allows to store additional attributes to a set of quantum numbers.
@@ -48,27 +66,14 @@ class DecaySetup:
             if p.type_id is None: 
                 p.type_id = i
 
-        # self.sorting_function = lambda x: x if not isinstance(x, int) else self.final_state_particles[x].type_id
-        def sorting_function(x):
-            def key(x):
-                if not isinstance(x, int):
-                    return -len(x) * 10000 + key(x[0])
-                else:
-                    return self.final_state_particles[x].type_id
-            if isinstance(x, tuple) or isinstance(x, list):
-                return tuple(sorted(x, key=key))
-            else:
-                return key(x)
-
-        self.sorting_function = sorting_function
-        self.tc = TopologyCollection(0, list(self.final_state_particles), ordering_function=self.sorting_function)
-    
+        self.tc = TopologyCollection(0, list(self.final_state_particles), ordering_function=SortingFunction(self.final_state_particles))
+ 
     @property
     def topologies(self) -> Topology:
         return self.tc.topologies
     
     def symmetrize(self, topo: Topology) -> list[Topology]:
-        return Topology(topo.root.value, topo.tuple, ordering_function=self.sorting_function)
+        return Topology(topo.root.value, topo.tuple, ordering_function=SortingFunction(self.final_state_particles))
 
     def filled_topologies(self, resonances: dict[tuple[int, ...], Any]):
         toplogies = self.topologies
