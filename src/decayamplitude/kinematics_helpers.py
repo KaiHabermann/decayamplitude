@@ -1,4 +1,5 @@
 from decayangle.decay_topology import Node
+import numpy as np
 
 def mass_from_node(node: Node, momenta):
     """
@@ -13,8 +14,9 @@ def mass_from_node(node: Node, momenta):
     """
     # copy the node
     node = Node(node.tuple)
+    
+    flat = tuple(np.array(node.tuple).flatten())
 
-    # construct the topology
-    Node.construct_topology(node, node.tuple)
-
-    return node.mass(momenta=momenta)
+    return sum(
+        momenta[i] for i in flat
+    )
