@@ -1,0 +1,85 @@
+decayamplitude package
+======================
+
+Submodules
+----------
+
+decayamplitude.arguments module
+-------------------------------
+
+.. automodule:: decayamplitude.arguments
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+decayamplitude.backend module
+-----------------------------
+
+.. automodule:: decayamplitude.backend
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+decayamplitude.chain module
+---------------------------
+
+.. automodule:: decayamplitude.chain
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+decayamplitude.combiner module
+------------------------------
+
+.. automodule:: decayamplitude.combiner
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+decayamplitude.kinematics\_helpers module
+-----------------------------------------
+
+.. automodule:: decayamplitude.kinematics_helpers
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+decayamplitude.particle module
+------------------------------
+
+.. automodule:: decayamplitude.particle
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+decayamplitude.resonance module
+-------------------------------
+
+.. automodule:: decayamplitude.resonance
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+decayamplitude.rotation module
+------------------------------
+
+.. automodule:: decayamplitude.rotation
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+decayamplitude.utils module
+---------------------------
+
+.. automodule:: decayamplitude.utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: decayamplitude
+   :members:
+   :show-inheritance:
+   :undoc-members:
