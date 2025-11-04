@@ -4,6 +4,7 @@ from decayamplitude.chain import MultiChain
 from decayamplitude.combiner import ChainCombiner
 from decayamplitude.resonance import Resonance
 from decayangle.decay_topology import Topology, Node
+from decayamplitude.kinematics_helpers import mass_from_node
 
 import numpy as np
 def constant_lineshape(*args):
@@ -24,6 +25,8 @@ def test_multi_chain():
             4: QN(1, -1) 
         }
 
+
+    m = mass_from_node(Node((1,2,3)), momenta)
     resonances_hadronic = {
         (1,2): [
             # Here the hadronic resonances go+
