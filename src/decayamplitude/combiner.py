@@ -36,6 +36,18 @@ class ChainCombiner:
             return self.reference.root_resonance
         return None
 
+    @property
+    def single_chains(self) -> list[DecayChain]:
+        """
+        Returns the single chains, by flattening the aligned chains and multi chains into a list of single chains.
+        """
+        chains = [self.reference] if isinstance(self.reference, DecayChain) else self.reference.chains
+        for aligned_chain in self.aligned_chains:
+            if isinstance(aligned_chain, AlignedChain):
+                chains.append(aligned_chain)
+            elif isinstance(aligned_chain, AlignedMultiChain):
+                chains.extend(aligned_chain.chains)
+        return chains
 
     @property
     def combined_function(self):

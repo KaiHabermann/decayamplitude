@@ -308,6 +308,19 @@ class DecayChain:
             # raise ValueError(f"Parameter names are not unique: {', '.join([name for name, count in c.items() if count > 1])}")
         return list(set(resonance_parameter_names))
 
+    def unpolarized_amplitude(self, ls_couplings: dict, complex_couplings=True) -> tuple[Callable, list[str]]:
+        """
+        Returns a function that calculates the unpolarized amplitude of the decay chain.
+        """
+        def f(arguments:dict):
+            return sum(
+                    abs(v)**2 
+                    for h0 in self.root_resonance.quantum_numbers.angular.projections()
+                    for v in self.matrix(h0, arguments).values()
+                )
+
+        return _create_function(self.resonance_params, ls_couplings, f, complex_couplings=complex_couplings)
+
 class AlignedChain(DecayChain):
     """
     The aligned version of the decay chain. This is used to calculate the aligned amplitude, which is the amplitude in the final state helicity frame as defined by a reference topology or reference chain.

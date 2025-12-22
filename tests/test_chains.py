@@ -80,5 +80,79 @@ def test_multi_chain():
     combined = ChainCombiner([chain1, chain2])
     func, params = combined.unpolarized_amplitude(combined.generate_couplings())
 
+
+def test_single_chain_unpolarized_amplitude():
+    """Test that we can extract a single chain from a combiner and call unpolarized_amplitude on it."""
+    momenta = {
+        1: np.array([1, 0.1, 0.4, 3]),
+        2: np.array([0.5, -0.1, -0.4, 3]),
+        3: np.array([1.1, 0.2, 0.5, 3]),
+        4: np.array([0.6, -0.2, -0.5, 3]),
+    }
+    final_state_qn = {
+            1: QN(0, 1), 
+            2: QN(0, 1), 
+            3: QN(1, 1), 
+            4: QN(1, -1) 
+        }
+
+    m = mass_from_node(Node((1,2,3)), momenta)
+    resonances_hadronic = {
+        (1,2): [
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=constant_lineshape, argnames=["D_2300_M", "D_2300_Gamma"], preserve_partity=True, name="Resnance1"),
+            Resonance(Node((1, 2)), quantum_numbers=QN(4, 1), lineshape=constant_lineshape, argnames=["D_2460_M", "D_2460_Gamma"], preserve_partity=True, name="Resonance2"),
+        ],
+        (3, 4): 
+        [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="Resonance3")],
+        (1,2,3): 
+        [Resonance(Node((1, 2, 3)), quantum_numbers=QN(1, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="Resonance4")],
+
+        0: [Resonance(Node(0), quantum_numbers=QN(0, 1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="B0")],
+    }
+
+    topology1 = Topology(
+        0,
+        decay_topology=((1,2), (3, 4))
+    )
+
+    momenta = topology1.to_rest_frame(momenta)
+
+    topology2 = Topology(
+        0,
+        decay_topology=(((1,2), 3) ,4 )
+    )
+
+    chain1 = MultiChain(
+        topology = topology1,
+        resonances = resonances_hadronic,
+        momenta = momenta,
+        final_state_qn = final_state_qn
+    )
+
+    chain2 = MultiChain(
+        topology = topology2,
+        resonances = resonances_hadronic,
+        momenta = momenta,
+        final_state_qn = final_state_qn
+    )
+
+    combined = ChainCombiner([chain1, chain2])
+    
+    # Get a single chain from the combiner
+    single_chains = combined.single_chains
+    assert len(single_chains) > 0, "single_chains should return at least one chain"
+    
+    # Get the first single chain
+    single_chain = single_chains[0]
+    
+    # Generate couplings for the single chain
+    ls_couplings = single_chain.generate_couplings()
+    
+    # Call unpolarized_amplitude on the single chain
+    func, params = single_chain.unpolarized_amplitude(ls_couplings)
+    func(*([1] * len(params)))
+
+
 if __name__ == "__main__":
     test_multi_chain()
+    test_single_chain_unpolarized_amplitude()
