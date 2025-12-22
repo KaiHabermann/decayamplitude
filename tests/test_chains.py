@@ -1,6 +1,6 @@
 from __future__ import annotations
 from decayamplitude.rotation import QN
-from decayamplitude.chain import MultiChain
+from decayamplitude.chain import DecayChain, MultiChain, AlignedMultiChain
 from decayamplitude.combiner import ChainCombiner
 from decayamplitude.resonance import Resonance
 from decayangle.decay_topology import Topology, Node
@@ -153,6 +153,75 @@ def test_single_chain_unpolarized_amplitude():
     func(*([1] * len(params)))
 
 
+def test_single_chains_are_decay_chains():
+    """Test that all elements returned by single_chains are DecayChain instances and not MultiChain or AlignedMultiChain."""
+    momenta = {
+        1: np.array([1, 0.1, 0.4, 3]),
+        2: np.array([0.5, -0.1, -0.4, 3]),
+        3: np.array([1.1, 0.2, 0.5, 3]),
+        4: np.array([0.6, -0.2, -0.5, 3]),
+    }
+    final_state_qn = {
+            1: QN(0, 1), 
+            2: QN(0, 1), 
+            3: QN(1, 1), 
+            4: QN(1, -1) 
+        }
+
+    m = mass_from_node(Node((1,2,3)), momenta)
+    resonances_hadronic = {
+        (1,2): [
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=constant_lineshape, argnames=["D_2300_M", "D_2300_Gamma"], preserve_partity=True, name="Resnance1"),
+            Resonance(Node((1, 2)), quantum_numbers=QN(4, 1), lineshape=constant_lineshape, argnames=["D_2460_M", "D_2460_Gamma"], preserve_partity=True, name="Resonance2"),
+        ],
+        (3, 4): 
+        [Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="Resonance3")],
+        (1,2,3): 
+        [Resonance(Node((1, 2, 3)), quantum_numbers=QN(1, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="Resonance4")],
+
+        0: [Resonance(Node(0), quantum_numbers=QN(0, 1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="B0")],
+    }
+
+    topology1 = Topology(
+        0,
+        decay_topology=((1,2), (3, 4))
+    )
+
+    momenta = topology1.to_rest_frame(momenta)
+
+    topology2 = Topology(
+        0,
+        decay_topology=(((1,2), 3) ,4 )
+    )
+
+    chain1 = MultiChain(
+        topology = topology1,
+        resonances = resonances_hadronic,
+        momenta = momenta,
+        final_state_qn = final_state_qn
+    )
+
+    chain2 = MultiChain(
+        topology = topology2,
+        resonances = resonances_hadronic,
+        momenta = momenta,
+        final_state_qn = final_state_qn
+    )
+
+    combined = ChainCombiner([chain1, chain2])
+    
+    # Get all single chains from the combiner
+    single_chains = combined.single_chains
+    assert len(single_chains) > 0, "single_chains should return at least one chain"
+    
+    # Verify all elements are DecayChain instances
+    for chain in single_chains:
+        assert isinstance(chain, DecayChain), f"Expected DecayChain, got {type(chain)}"
+        assert not isinstance(chain, MultiChain), f"single_chains should not contain MultiChain instances, got {type(chain)}"
+        assert not isinstance(chain, AlignedMultiChain), f"single_chains should not contain AlignedMultiChain instances, got {type(chain)}"
+
+
 if __name__ == "__main__":
     test_multi_chain()
     test_single_chain_unpolarized_amplitude()
+    test_single_chains_are_decay_chains()

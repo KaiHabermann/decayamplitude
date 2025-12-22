@@ -41,11 +41,11 @@ class ChainCombiner:
         """
         Returns the single chains, by flattening the aligned chains and multi chains into a list of single chains.
         """
-        chains = [self.reference] if isinstance(self.reference, DecayChain) else self.reference.chains
+        chains = [self.reference] if not hasattr(self.reference, "chains") else [chain for chain in self.reference.chains]
         for aligned_chain in self.aligned_chains:
             if isinstance(aligned_chain, AlignedChain):
                 chains.append(aligned_chain)
-            elif isinstance(aligned_chain, AlignedMultiChain):
+            elif isinstance(aligned_chain, AlignedMultiChain) :
                 chains.extend(aligned_chain.chains)
         return chains
 
