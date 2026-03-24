@@ -142,7 +142,7 @@ class Resonance:
         return self.__str__()
     
     @convert_angular
-    def helicity_from_ls(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], couplings:dict[LSTuple, float], arguments:dict):
+    def helicity_from_ls(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], couplings:dict[LSTuple, float], arguments:dict, d1_mass, d2_mass):
         """
         This function translates from the ls basis into the helicity basis.
         The linehspae funcitons can depend on L and S.
@@ -164,14 +164,18 @@ class Resonance:
             Format is {(l, s): value}
         arguments: dict
             The arguments for the lineshape function. The keys are the names of the arguments.
-        
+        d1_mass: float
+            Invariant mass of the first daughter
+        d2_mass: float
+            Invariant mass of the second daughter
+
         """
         q1, q2 = self.daughter_qn
         j1, j2 = q1.angular.value2, q2.angular.value2
 
         return sum(
-            coupling * 
-            self.lineshape(l,s, *self.argument_list(arguments)) * 
+            coupling *
+            self.lineshape(l, s, *self.argument_list(arguments), d1_mass=d1_mass, d2_mass=d2_mass) *
             (l + 1) ** 0.5 /
             (self.quantum_numbers.angular.value2 + 1) ** 0.5 *
             clebsch_gordan(j1, h1, j2, -h2, s, h1- h2) *
@@ -223,22 +227,23 @@ class Resonance:
                 }
             }
     
-    def direct_helicity_coupling(self, arguments, h1, h2):
-        return arguments[self.id]["couplings"][(h1, h2)] * self.lineshape(h1, h2, *self.argument_list(arguments))
+    def direct_helicity_coupling(self, arguments, h1, h2, d1_mass, d2_mass):
+        return arguments[self.id]["couplings"][(h1, h2)] * self.lineshape(h1, h2, *self.argument_list(arguments), d1_mass=d1_mass, d2_mass=d2_mass)
     
     @convert_angular
-    def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict):
+    def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict, d1_mass, d2_mass):
+        if d1_mass == 0 or d2_mass == 0:
+            return 0
         if self.scheme == "ls":
             couplings = self.__construct_couplings(arguments)
-        # lineshape_args = self.__construct_arguments(arguments)
-            coupling = self.helicity_from_ls(h0, h1, h2, couplings ,arguments)
+            coupling = self.helicity_from_ls(h0, h1, h2, couplings, arguments, d1_mass, d2_mass)
         elif self.scheme == "helicity":
-            coupling = self.direct_helicity_coupling(arguments, h1, h2)
+            coupling = self.direct_helicity_coupling(arguments, h1, h2, d1_mass, d2_mass)
         else:
             raise ValueError(f"Scheme must be either 'ls' or 'helicity' but is {self.scheme}")
         # particle 2 convention from Jacob-Wick is used!
         j2 = self.daughter_qn[1].angular.value2
-        return coupling * (-1) ** ((j2 - h2) / 2) 
+        return coupling * (-1) ** ((j2 - h2) / 2)
     
     def register_lineshape(self, lineshape_function:Callable, parameter_names: list[str]):
         if self.__lineshape is not None:
