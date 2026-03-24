@@ -13,6 +13,7 @@ from decayamplitude.resonance import ResonanceDict
 from decayamplitude.backend import numpy as np
 
 from decayamplitude.utils import _create_function, sanitize
+from decayamplitude.kinematics_helpers import mass_from_node
 
 class DecayChainNode:
     """
@@ -164,12 +165,12 @@ class DecayChainNode:
         raise ValueError(f"Convention {self.convention} not known")
 
     @convert_angular
-    def amplitude(self, h0:Union[Angular, int], lambdas:dict, helicity_angles:dict[tuple,HelicityAngles], arguments:dict):
+    def amplitude(self, h0:Union[Angular, int], lambdas:dict, helicity_angles:dict[tuple,HelicityAngles], arguments:dict, momenta:dict):
         """
         The amplitude of a single node given the helicity of the decaying particle
         The helicities of the daughters will be generated from here, recursively
         the arguments are the couplings of the resonances and are a global dict, which will be passed through the recursion
-        This means, that all arguments for lineshapes will be provided positional 
+        This means, that all arguments for lineshapes will be provided positional
 
         parameters:
         h0: int
@@ -178,7 +179,9 @@ class DecayChainNode:
             The helicites of the mother and the final state particles
         arguments: dict
             The couplings of the resonances and the resonance parameters
-        
+        momenta: dict
+            The four-momenta of the final state particles, keyed by particle index
+
         returns:
         float
             The amplitude of the decay as a generator
@@ -198,12 +201,14 @@ class DecayChainNode:
             else:
                 d2_helicities = d2.quantum_numbers.projections(return_int=True)
 
+            d1_mass = mass_from_node(d1.node, momenta)
+            d2_mass = mass_from_node(d2.node, momenta)
+
             for h1 in d1_helicities:
                 for h2 in d2_helicities:
-                    for A_1 in d1.amplitude(h1, lambdas, helicity_angles, arguments):
-                        for A_2 in d2.amplitude(h2, lambdas, helicity_angles, arguments):
-                            # TODO: add explicit handling of the arguments for the lineshape
-                            A_self = self.resonance.amplitude(h0, h1, h2, arguments) * np.conj(wigner_capital_d(*self.__helicity_angles(helicity_angles[self.decay_tuple]), self.quantum_numbers.angular.value2, h0, h1 - h2))
+                    for A_1 in d1.amplitude(h1, lambdas, helicity_angles, arguments, momenta):
+                        for A_2 in d2.amplitude(h2, lambdas, helicity_angles, arguments, momenta):
+                            A_self = self.resonance.amplitude(h0, h1, h2, arguments, d1_mass, d2_mass) * np.conj(wigner_capital_d(*self.__helicity_angles(helicity_angles[self.decay_tuple]), self.quantum_numbers.angular.value2, h0, h1 - h2))
                             yield A_1 * A_2 * A_self * (self.quantum_numbers.angular.value2 + 1)**0.5
 
 class DecayChain:
@@ -262,7 +267,7 @@ class DecayChain:
         def f(h0, lambdas:dict, arguments:dict):
             amplitudes = [
                  amplitude
-                for amplitude in self.root.amplitude(h0, lambdas, self.helicity_angles, arguments)
+                for amplitude in self.root.amplitude(h0, lambdas, self.helicity_angles, arguments, self.momenta)
             ]
             prefactor = 1/(self.root.resonance.quantum_numbers.angular.value2 + 1)**0.5
             return prefactor * sum(
