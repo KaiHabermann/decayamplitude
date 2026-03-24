@@ -8,6 +8,7 @@ from functools import cached_property
 from decayamplitude.utils import sanitize
 
 import warnings
+import inspect
 
 
 LSTuple = namedtuple("LSTuple", ["l", "s"])
@@ -33,6 +34,7 @@ class Resonance:
             self.quantum_numbers = quantum_numbers
         self.__daughters = None
         self.__lineshape = None
+        self.__lineshape_supports_masses = False
         if name is not None:
             self.__name = name
         else: 
@@ -175,7 +177,7 @@ class Resonance:
 
         return sum(
             coupling *
-            self.lineshape(l, s, *self.argument_list(arguments), d1_mass=d1_mass, d2_mass=d2_mass) *
+            self.lineshape(l, s, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass)) *
             (l + 1) ** 0.5 /
             (self.quantum_numbers.angular.value2 + 1) ** 0.5 *
             clebsch_gordan(j1, h1, j2, -h2, s, h1- h2) *
@@ -228,7 +230,7 @@ class Resonance:
             }
     
     def direct_helicity_coupling(self, arguments, h1, h2, d1_mass, d2_mass):
-        return arguments[self.id]["couplings"][(h1, h2)] * self.lineshape(h1, h2, *self.argument_list(arguments), d1_mass=d1_mass, d2_mass=d2_mass)
+        return arguments[self.id]["couplings"][(h1, h2)] * self.lineshape(h1, h2, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass))
     
     @convert_angular
     def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict, d1_mass, d2_mass):
@@ -245,9 +247,19 @@ class Resonance:
         j2 = self.daughter_qn[1].angular.value2
         return coupling * (-1) ** ((j2 - h2) / 2)
     
+    def _mass_kwargs(self, d1_mass, d2_mass) -> dict:
+        if self.__lineshape_supports_masses:
+            return {"d1_mass": d1_mass, "d2_mass": d2_mass}
+        return {}
+
     def register_lineshape(self, lineshape_function:Callable, parameter_names: list[str]):
         if self.__lineshape is not None:
             raise ValueError("Lineshape already set")
+        sig = inspect.signature(lineshape_function)
+        self.__lineshape_supports_masses = (
+            ("d1_mass" in sig.parameters and "d2_mass" in sig.parameters) or
+            any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+        )
         self.__lineshape = lineshape_function
         self.__parameter_names = {}
         for parameter_name in parameter_names:
