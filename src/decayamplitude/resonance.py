@@ -9,6 +9,7 @@ from decayamplitude.utils import sanitize
 
 import warnings
 import inspect
+from decayamplitude.backend import numpy as np
 
 
 LSTuple = namedtuple("LSTuple", ["l", "s"])
@@ -234,8 +235,8 @@ class Resonance:
     
     @convert_angular
     def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict, d1_mass, d2_mass):
-        if d1_mass == 0 or d2_mass == 0:
-            return 0
+        d1_mass = np.nan_to_num(d1_mass, nan=0.0, posinf=0.0, neginf=0.0)
+        d2_mass = np.nan_to_num(d2_mass, nan=0.0, posinf=0.0, neginf=0.0)
         if self.scheme == "ls":
             couplings = self.__construct_couplings(arguments)
             coupling = self.helicity_from_ls(h0, h1, h2, couplings, arguments, d1_mass, d2_mass)
