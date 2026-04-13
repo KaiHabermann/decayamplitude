@@ -3,11 +3,11 @@ from decayangle.kinematics import mass
 
 
 def flatten(t):
-    if isinstance(item, tuple):
+    if isinstance(t, tuple):
         for item in t:
             yield from flatten(item)
     else:
-        yield item
+        yield t
 
 
 def mass_from_node(node: Node, momenta):
