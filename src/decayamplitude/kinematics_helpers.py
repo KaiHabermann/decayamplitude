@@ -1,6 +1,14 @@
 from decayangle.decay_topology import Node
 from decayangle.kinematics import mass
-import numpy as np
+
+
+def flatten(t):
+    for item in t:
+        if isinstance(item, tuple):
+            yield from flatten(item)
+        else:
+            yield item
+
 
 def mass_from_node(node: Node, momenta):
     """
@@ -13,13 +21,8 @@ def mass_from_node(node: Node, momenta):
     Returns:
     - The mass of the particle.
     """
-    # copy the node
-    node = Node(node.tuple)
-    
-    flat = tuple(np.array(node.tuple).flatten())
-
     return mass(
         sum(
-            momenta[i] for i in flat
+            momenta[i] for i in flatten(node.tuple)
         )
     )
