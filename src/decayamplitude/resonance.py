@@ -145,7 +145,7 @@ class Resonance:
         return self.__str__()
     
     @convert_angular
-    def helicity_from_ls(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], couplings:dict[LSTuple, float], arguments:dict, mass, d1_mass, d2_mass):
+    def helicity_from_ls(self, h0: Angular | int, h1: Angular | int, h2: Angular | int, couplings: dict[LSTuple, float], arguments: dict, mass, d1_mass, d2_mass):
         """
         This function translates from the ls basis into the helicity basis.
         The linehspae funcitons can depend on L and S.
@@ -236,10 +236,10 @@ class Resonance:
         return arguments[self.id]["couplings"][(h1, h2)] * self.lineshape(mass, h1, h2, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass))
 
     @convert_angular
-    def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict, mass, d1_mass, d2_mass):
-        mass = np.nan_to_num(mass, nan=0.0, posinf=0.0, neginf=0.0)
-        d1_mass = np.nan_to_num(d1_mass, nan=0.0, posinf=0.0, neginf=0.0)
-        d2_mass = np.nan_to_num(d2_mass, nan=0.0, posinf=0.0, neginf=0.0)
+    def amplitude(self, h0: Angular | int, h1: Angular | int, h2: Angular | int, arguments: dict, mass, d1_mass, d2_mass):
+        mass, d1_mass, d2_mass = (
+            np.nan_to_num(m, nan=0.0, posinf=0.0, neginf=0.0) for m in (mass, d1_mass, d2_mass)
+        )
         if self.scheme == "ls":
             couplings = self.__construct_couplings(arguments)
             coupling = self.helicity_from_ls(h0, h1, h2, couplings, arguments, mass, d1_mass, d2_mass)

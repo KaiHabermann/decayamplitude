@@ -4,7 +4,7 @@ from sympy import Rational, Symbol, lambdify
 from sympy.physics.quantum.cg import CG
 from sympy.physics.quantum.spin import Rotation
 from decayamplitude.backend import numpy as np
-from functools import lru_cache as cache
+from functools import lru_cache
 from sympy.abc import x as placeholder
 from itertools import product
 
@@ -156,7 +156,7 @@ class QN:
         return self.angular.projections(return_int=return_int)
         
 
-@cache
+@lru_cache(maxsize=None)
 def clebsch_gordan(j1, m1, j2, m2, J, M):
     """
     Return clebsch-Gordan coefficient. Note that all arguments should be multiplied by 2
@@ -181,7 +181,7 @@ def clebsch_gordan(j1, m1, j2, m2, J, M):
     return cg
 
 
-@cache
+@lru_cache(maxsize=None)
 def get_wigner_function(j: int, m1: int, m2: int):
     """
     Return Wigner small-d function. Note that all arguments should be multiplied by 2
@@ -202,7 +202,7 @@ def wigner_small_d_sympy(theta, j, m1, m2):
     return d.astype(np.complex128)
 
 
-@cache
+@lru_cache(maxsize=None)
 def _wigner_d_coefficients(j2: int, m1_2: int, m2_2: int):
     """Pre-compute scalar (coeff, cos_power, sin_power) terms for
     d^j_{m'm}(β) = Σ coeff · cos(β/2)^cos_power · sin(β/2)^sin_power.

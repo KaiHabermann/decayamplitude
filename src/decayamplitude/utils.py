@@ -1,6 +1,6 @@
 from typing import Callable
 
-def _create_function(names:list[str], ls_couplings:dict[int, dict[str: dict[tuple, float]]], f, complex_couplings=False) -> tuple[Callable, list[str]]:
+def _create_function(names: list[str], ls_couplings: dict[int, dict[str, dict[tuple, float]]], f, complex_couplings=False) -> tuple[Callable, list[str]]:
     from decayamplitude.resonance import LSTuple, Resonance
     import inspect
     import types

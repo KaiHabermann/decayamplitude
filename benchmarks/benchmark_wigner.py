@@ -30,14 +30,13 @@ import jax
 import jax.numpy as jnp
 jax.config.update("jax_enable_x64", True)
 
-from decayamplitude.backend import numpy as np
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN
 from decayamplitude.chain import MultiChain
 from decayamplitude.combiner import ChainCombiner
 from decayangle.decay_topology import Topology, Node
 
-# ── Run parameters ────────────────────────────────────────────────────────────
+# Run parameters
 N_EVENTS     = 100_000
 N_PARAM_SETS = 32        # parallel parameter combinations for vmap benchmark
 EXEC_REPS    = 5
@@ -47,12 +46,12 @@ MOTHER_MASS  = 5.279     # GeV
 M1, M2, M3   = 0.140, 0.140, 0.775
 
 
-# ── Lineshape ─────────────────────────────────────────────────────────────────
+# Lineshape
 def bw(mass, l, s, m0, gamma):
     return 1.0 / (mass**2 - m0**2 + 1j * mass * gamma)
 
 
-# ── Phase-space generator ─────────────────────────────────────────────────────
+# Phase-space generator
 def generate_events(n: int) -> dict:
     try:
         import phasespace
@@ -75,7 +74,7 @@ def generate_events(n: int) -> dict:
         return {1: rand_p(M1), 2: rand_p(M2), 3: rand_p(M3)}
 
 
-# ── Amplitude builder ─────────────────────────────────────────────────────────
+# Amplitude builder
 def build_combiner() -> ChainCombiner:
     topology1 = Topology(0, decay_topology=((2, 3), 1))
     topology2 = Topology(0, decay_topology=((1, 2), 3))
@@ -111,7 +110,7 @@ def build_combiner() -> ChainCombiner:
     return ChainCombiner([chain1, chain2])
 
 
-# ── Timing helper ─────────────────────────────────────────────────────────────
+# Timing helper
 def timed(label, fn, args, reps=EXEC_REPS):
     t0 = time.perf_counter()
     r  = fn(*args)
@@ -130,7 +129,7 @@ def timed(label, fn, args, reps=EXEC_REPS):
     return t_first, t_avg
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# Main
 def main():
     print(f"N_EVENTS = {N_EVENTS:,}  |  N_PARAM_SETS = {N_PARAM_SETS}", flush=True)
 
@@ -153,7 +152,7 @@ def main():
     topology_ref = Topology(0, decay_topology=((2, 3), 1))
     momenta = topology_ref.to_rest_frame(raw_momenta)
 
-    # ── Single-event function: XLA traces with shape (4,) per particle ─────────
+    # Single-event function: XLA traces with shape (4,) per particle.
     # All benchmarks are built on this so momenta are always a traced leaf,
     # never embedded as XLA constants.
     event_axes = {k: 0 for k in momenta}  # vmap axis: first dim of each particle
@@ -165,7 +164,9 @@ def main():
     # Vectorise over events → shape (N_EVENTS,)
     f_batched = jax.vmap(f_1e, in_axes=(event_axes,) + (None,) * n_params)
 
-    # ── 1. Variable momenta vs baked-in momenta ───────────────────────────────
+    # N_PARAM_SETS independent coupling combinations, used by sections 3 and 4.
+    param_grid = jnp.ones((N_PARAM_SETS, n_params), dtype=jnp.float64)
+
     print("\n── 1. Variable momenta vs baked-in ───────────────────────────────────────")
 
     # Without vmap: pass full (N_EVENTS, 4) momenta directly to unpolarized.
@@ -197,7 +198,6 @@ def main():
     print(f"  {'baked-in  jit(closure(f_batched))':<44s}  first={t_baked_compile*1e3:8.1f} ms   avg={t_baked_exec*1e3:8.1f} ms")
     print(f"  exec speedup baked vs variable: {t_jit_exec / t_baked_exec:.2f}×")
 
-    # ── 2. JIT + gradient of NLL ──────────────────────────────────────────────
     print("\n── 2. JIT + gradient of NLL ──────────────────────────────────────────────")
 
     def nll(momenta_batch, *params):
@@ -210,7 +210,6 @@ def main():
         "jit(grad(nll))", grad_nll, (momenta, *param_vals)
     )
 
-    # ── 3. vmap over grad — population-based fitting ──────────────────────────
     # N_PARAM_SETS independent fitters each compute grad(NLL) on the same
     # dataset simultaneously. Each fitter has its own parameter set.
     # vmap over params_row → output (N_PARAM_SETS, n_params) gradient matrix.
@@ -242,15 +241,12 @@ def main():
     t_seq_grad = sum(seq_grad_times) / len(seq_grad_times)
     print(f"  {'sequential jit(grad(nll)) ×' + str(N_PARAM_SETS):<44s}  avg={t_seq_grad*1e3:8.1f} ms")
 
-    # ── 4. vmap over parameter sets ───────────────────────────────────────────
     # Fixed momenta, N_PARAM_SETS coupling combinations in one compiled pass.
     # Useful for: parameter scans, ensemble fits, bootstrapping.
     # Two nested vmaps, both with momenta as an explicit leaf:
     #   inner vmap — over events       → output (N_EVENTS,)
     #   outer vmap — over param rows   → output (N_PARAM_SETS, N_EVENTS)
     print("\n── 4. vmap over parameter sets (fixed momenta) ──────────────────────────")
-
-    param_grid = jnp.ones((N_PARAM_SETS, n_params), dtype=jnp.float64)
 
     def f_1e_row(momenta_1e, params_row):
         return f_1e(momenta_1e, *params_row)
@@ -275,7 +271,6 @@ def main():
         vmap_direct, (momenta, param_grid)
     )
 
-    # ── 5. Recompile cost: swap in a different N_EVENTS ───────────────────────
     # JAX JIT caches by shape — different N_EVENTS → recompile.
     # vmap×2 (inner graph traces (4,)) should recompile faster than
     # vmap_params(f_batched) (inner graph traces (N_EVENTS, 4)).
@@ -337,15 +332,15 @@ def main():
     print(f"  {'baked-in  jit(closure(vmap_events))':<44s}  {t_baked_compile*1e3:>8.1f}  {t_baked_exec*1e3:>8.1f}  {t_baked_recompile*1e3:>20.1f}")
     print(f"  {'JIT + grad(NLL)':<44s}  {t_grad_compile*1e3:>8.1f}  {t_grad_exec*1e3:>8.1f}  {'—':>20s}")
     print(f"{'─'*W}")
-    print(f"  {'─── gradient, {N_PARAM_SETS} fitters (population fitting) ───'}")
+    print(f"  ─── gradient, {N_PARAM_SETS} fitters (population fitting) ───")
     print(f"  {'vmap(grad)  jit(vmap(grad(nll)))':<44s}  {t_vmap_grad_compile*1e3:>8.1f}  {t_vmap_grad_exec*1e3:>8.1f}  {'—':>20s}")
     print(f"  {'sequential  jit(grad) ×' + str(N_PARAM_SETS):<44s}  {'—':>8s}  {t_seq_grad*1e3:>8.1f}  {'—':>20s}")
     print(f"{'─'*W}")
-    print(f"  {'─── {N_PARAM_SETS} param sets in parallel (vmap over params) ───'}")
+    print(f"  ─── {N_PARAM_SETS} param sets in parallel (vmap over params) ───")
     print(f"  {'vmap_events+params  jit(vmap×2)':<44s}  {t_vmap_compile*1e3:>8.1f}  {t_vmap_exec*1e3:>8.1f}  {t_recompile_vmap2*1e3:>20.1f}")
     print(f"  {'vmap_params(f_batched)  jit(vmap)':<44s}  {t_direct_compile*1e3:>8.1f}  {t_direct_exec*1e3:>8.1f}  {t_recompile_direct*1e3:>20.1f}")
     print(f"{'─'*W}")
-    print(f"  {'─── {N_PARAM_SETS} param sets sequential (no vmap over params) ───'}")
+    print(f"  ─── {N_PARAM_SETS} param sets sequential (no vmap over params) ───")
     print(f"  {'sequential  jit(vmap_events) ×' + str(N_PARAM_SETS):<44s}  {'—':>8s}  {t_seq*1e3:>8.1f}  {'—':>20s}")
     print(f"{'─'*W}")
     print(f"  compile speedup  vmap vs no-vmap:              {t_direct_jit_compile / t_jit_compile:>6.2f}×")
