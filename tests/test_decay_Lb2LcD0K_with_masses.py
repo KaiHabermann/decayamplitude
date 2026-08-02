@@ -37,10 +37,9 @@ def constant_lineshape(L, S, *args):
 
 def make_recording_lineshape(store: dict):
     """Returns a BW lineshape that records the daughter masses it receives."""
-    def lineshape(l, s, m0, gamma, *, d1_mass=None, d2_mass=None):
+    def lineshape(mass, l, s, m0, gamma, *, d1_mass=None, d2_mass=None):
         store["d1"].append(d1_mass)
         store["d2"].append(d2_mass)
-        mass = d1_mass if d1_mass is not None else 1.0
         return 1 / (mass**2 - m0**2 + 1j * mass * gamma)
     return lineshape
 
@@ -64,7 +63,6 @@ def amplitude(momenta, resonance_lineshapes: dict):
         MultiChain(
             topology=topology,
             resonances=resonances,
-            momenta=momenta,
             final_state_qn=final_state_qn
         ) for topology in topologies
     ]
@@ -92,9 +90,9 @@ def test_Lb2LcD0K_masses_passed_to_lineshape():
     couplings = full.generate_couplings()
     unpolarized, param_names = full.unpolarized_amplitude(couplings)
 
-    start_params = {name: 1.0 for name in param_names}
+    start_params = {name: 1.0 for name in param_names if name != "momenta"}
     # run without JIT so lineshapes are called with concrete values
-    unpolarized(**start_params)
+    unpolarized(momenta, **start_params)
 
     for store, label in [
         (store_23_0, "D_s_Kmatrix (2,3)"),

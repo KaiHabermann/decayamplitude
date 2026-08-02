@@ -129,35 +129,30 @@ def test_threebody_1():
     decay = DecayChain(
         topology = topology1,
         resonances = resonances1,
-        momenta = momenta,
         final_state_qn = final_state_qn
     )
 
     decay2 = DecayChain(
         topology = topology2,
         resonances = resonances2,
-        momenta = momenta,
         final_state_qn = final_state_qn
     )
 
     decay3 = DecayChain(
         topology = topology2,
         resonances = resonances3,
-        momenta = momenta,
         final_state_qn = final_state_qn
     )
 
     decay_dpd = DecayChain(
         topology = topology1,
         resonances = resonances_dpd,
-        momenta = momenta,
         final_state_qn = final_state_qn
     )
 
     decay_dpd_m = DecayChain(
         topology = topology1,
         resonances = resonances_dpd,
-        momenta = momenta,
         final_state_qn = final_state_qn,
         convention = "minus_phi"
     )
@@ -214,13 +209,12 @@ def test_threebody_1():
     }
 
 
-    dpd_value = decay_dpd.matrix(-1, arguments_dpd)[(1, 2,0)]
-    dpd_value_m = decay_dpd_m.matrix(-1, arguments_dpd)[(1, 2,0)]
+    dpd_value = decay_dpd.matrix(-1, arguments_dpd, momenta)[(1, 2,0)]
+    dpd_value_m = decay_dpd_m.matrix(-1, arguments_dpd, momenta)[(1, 2,0)]
 
     aligned_decay3 = AlignedChain(
         topology = topology2,
         resonances = resonances3,
-        momenta = momenta,
         final_state_qn = final_state_qn,
         reference=decay_dpd,
         convention="helicity"
@@ -229,13 +223,12 @@ def test_threebody_1():
     aligned_decay3_m = AlignedChain(
         topology = topology2,
         resonances = resonances3,
-        momenta = momenta,
         final_state_qn = final_state_qn,
         reference=decay_dpd_m,
         convention="minus_phi"
     )
-    value3 = aligned_decay3.aligned_matrix(-1, arguments3)[(1, 2, 0)]
-    value3_m = aligned_decay3_m.aligned_matrix(-1, arguments3)[(1, 2, 0)]
+    value3 = aligned_decay3.aligned_matrix(-1, arguments3, momenta)[(1, 2, 0)]
+    value3_m = aligned_decay3_m.aligned_matrix(-1, arguments3, momenta)[(1, 2, 0)]
     # this is a reference value copied from the output of the decayangle code
     # We can use this to harden against mistakes in the decayamplitude code
     assert np.allclose(dpd_value, (-0.14315554700441074 + 0.12414558894503328j))
@@ -280,13 +273,11 @@ def testShortThreeBodyAmplitude():
         DecayChain(
             topology = topology1,
             resonances = resonances1,
-            momenta = momenta,
             final_state_qn = final_state_qn
         ),
         DecayChain(
             topology = topology1,
             resonances = resonances_dpd,
-            momenta = momenta,
             final_state_qn = final_state_qn
         )
     ])
@@ -295,13 +286,11 @@ def testShortThreeBodyAmplitude():
         DecayChain(
             topology = topology2,
             resonances = resonances2,
-            momenta = momenta,
             final_state_qn = final_state_qn,
         ),
         DecayChain(
             topology = topology2,
             resonances = resonances3,
-            momenta = momenta,
             final_state_qn = final_state_qn
         )
     ])
@@ -318,21 +307,25 @@ def testShortThreeBodyAmplitude():
     full = ChainCombiner([chain1, chain2])
     arguments = full.generate_couplings()
 
-    matrix1 = full.combined_matrix(-1, arguments)
-    matrix2 = full.combined_matrix(1, arguments)
+    matrix1 = full.combined_matrix(-1, arguments, momenta)
+    matrix2 = full.combined_matrix(1, arguments, momenta)
 
     unpolarized, argnames = full.unpolarized_amplitude(full.generate_couplings(), complex_couplings=False)
-    assert np.allclose(sum(abs(v)**2 for v in matrix1.values()) + sum(abs(v)**2 for v in matrix2.values()), unpolarized(*([1] * len(argnames))))
-    assert np.allclose(unpolarized(*([1] * len(argnames))), unpolarized(*([1] * len(argnames)))[0])
+    n_coupling = len(argnames) - 1  # argnames[0] is "momenta"
+    result = unpolarized(momenta, *([1] * n_coupling))
+    assert np.allclose(sum(abs(v)**2 for v in matrix1.values()) + sum(abs(v)**2 for v in matrix2.values()), result)
+    assert np.allclose(result, result[0])
 
-    full2 = ChainCombiner([chain1, MultiChain(topology2, momenta=momenta, resonances=merged_resonances, final_state_qn=final_state_qn)])
-  
+    full2 = ChainCombiner([chain1, MultiChain(topology2, resonances=merged_resonances, final_state_qn=final_state_qn)])
+
     unpolarized2, argnames2 = full2.unpolarized_amplitude(full2.generate_couplings(), complex_couplings=False)
+    n_coupling2 = len(argnames2) - 1
 
     # initial orientation should not affect the result
-    assert np.allclose(unpolarized2(*([1] * len(argnames))), unpolarized2(*([1] * len(argnames2)))[0])
+    result2 = unpolarized2(momenta, *([1] * n_coupling2))
+    assert np.allclose(result2, result2[0])
 
-    assert np.allclose(unpolarized2(*([1] * len(argnames))) , unpolarized(*([1] * len(argnames))))
+    assert np.allclose(result2, result)
 
 
 if __name__ == "__main__":

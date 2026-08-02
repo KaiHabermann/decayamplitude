@@ -1,12 +1,10 @@
 from typing import Union, Optional, Callable, Literal
 from itertools import product
 import warnings as warnings
-from functools import cached_property
-from contextlib import contextmanager, ExitStack
 
 from decayangle.decay_topology import Topology, Node
 
-from decayangle.decay_topology import Topology, HelicityAngles, WignerAngles
+from decayangle.decay_topology import Topology, HelicityAngles
 from decayamplitude.particle import Particle
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN, wigner_capital_d, Angular, convert_angular
@@ -166,56 +164,46 @@ class DecayChainNode:
         raise ValueError(f"Convention {self.convention} not known")
 
     @convert_angular
-    def amplitude(self, h0:Union[Angular, int], lambdas:dict, helicity_d_matrices:dict, arguments:dict, momenta:dict):
+    def amplitude(self, h0:Union[Angular, int], lambdas:dict, arguments:dict, momenta:dict, helicity_angles:dict):
         """
-        The amplitude of a single node given the helicity of the decaying particle
-        The helicities of the daughters will be generated from here, recursively
-        the arguments are the couplings of the resonances and are a global dict, which will be passed through the recursion
-        This means, that all arguments for lineshapes will be provided positional
+        The amplitude of a single node given the helicity of the decaying particle.
+        Recursively computes daughter amplitudes.
 
         parameters:
         h0: int
-            The helicity of the decaying particle
+            Helicity of the decaying particle
         lambdas: dict
-            The helicites of the mother and the final state particles
-        helicity_d_matrices: dict
-            Pre-computed Wigner D-matrix elements, keyed by str(decay_tuple) then (m, n) in 2J units.
-            Produced by DecayChain.helicity_wigner_dict. Using pre-computed arrays avoids calling
-            sympy-lambdified wigner_small_d inside JAX traces.
+            Helicities of the final-state particles
         arguments: dict
-            The couplings of the resonances and the resonance parameters
+            Couplings and resonance parameters
         momenta: dict
-            The four-momenta of the final state particles, keyed by particle index
-
-        returns:
-        float
-            The amplitude of the decay as a generator
-
+            Per-event four-momenta, keyed by particle index
+        helicity_angles: dict
+            Per-event helicity angles for every internal node, keyed by decay_tuple.
+            Pre-computed once at chain_function level from momenta.
         """
         if self.final_state:
-            # we do not have a resonance and we have no daughters
             yield 1.
         else:
             d1, d2 = self.daughters
-            if d1.final_state:
-                d1_helicities = [lambdas[d1.tuple]]
-            else:
-                d1_helicities = d1.quantum_numbers.projections(return_int=True)
-            if d2.final_state:
-                d2_helicities = [lambdas[d2.tuple]]
-            else:
-                d2_helicities = d2.quantum_numbers.projections(return_int=True)
+            d1_helicities = [lambdas[d1.tuple]] if d1.final_state else d1.quantum_numbers.projections(return_int=True)
+            d2_helicities = [lambdas[d2.tuple]] if d2.final_state else d2.quantum_numbers.projections(return_int=True)
 
+            self_mass = mass_from_node(self.node, momenta)
             d1_mass = mass_from_node(d1.node, momenta)
             d2_mass = mass_from_node(d2.node, momenta)
-            d_node = helicity_d_matrices[str(self.decay_tuple)]
+
+            angles = helicity_angles[self.decay_tuple]
+            phi, theta = angles.phi_rf, angles.theta_rf
+            psi = 0 if self.convention == "helicity" else -phi
             J2 = self.quantum_numbers.angular.value2
 
             for h1 in d1_helicities:
                 for h2 in d2_helicities:
-                    for A_1 in d1.amplitude(h1, lambdas, helicity_d_matrices, arguments, momenta):
-                        for A_2 in d2.amplitude(h2, lambdas, helicity_d_matrices, arguments, momenta):
-                            A_self = self.resonance.amplitude(h0, h1, h2, arguments, d1_mass, d2_mass) * d_node[(J2, h0, h1 - h2)]
+                    for A_1 in d1.amplitude(h1, lambdas, arguments, momenta, helicity_angles):
+                        for A_2 in d2.amplitude(h2, lambdas, arguments, momenta, helicity_angles):
+                            d_val = np.conj(wigner_capital_d(phi, theta, psi, J2, h0, h1 - h2))
+                            A_self = self.resonance.amplitude(h0, h1, h2, arguments, self_mass, d1_mass, d2_mass) * d_val
                             yield A_1 * A_2 * A_self * (J2 + 1)**0.5
 
 class DecayChain:
@@ -223,13 +211,11 @@ class DecayChain:
     Class to represent a decay chain. This is a topology in connection with a set of resonances. One resonance for each internal node in the topology.
     """
 
-    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance] | ResonanceDict, momenta: dict, final_state_qn: dict[int, QN | Particle], convention:Literal["helicity", "minus_phi"]="helicity") -> None:
+    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance] | ResonanceDict, final_state_qn: dict[int, QN | Particle], convention:Literal["helicity", "minus_phi"]="helicity") -> None:
         self.topology = topology
         if not isinstance(resonances, ResonanceDict):
-            # if the resonances are not a ResonanceDict, we convert them to one
             resonances = ResonanceDict(resonances)
         self.resonances = resonances
-        self.momenta = momenta
         self.final_state_qn = final_state_qn
         self.convention = convention
 
@@ -260,79 +246,6 @@ class DecayChain:
     def final_state_nodes(self) -> list[DecayChainNode]:
         return [node for node in self.nodes if node.final_state]
 
-    _WIGNER_MISSING = object()
-
-    @cached_property
-    def helicity_angles(self):
-        return self.topology.helicity_angles(momenta=self.momenta, convention=self.convention)
-
-    @cached_property
-    def helicity_wigner_dict(self) -> dict:
-        """
-        Pre-computed Wigner D-matrix elements for every internal decay vertex.
-
-        Structure: {str(decay_tuple): {(m_2J, n_2J): complex_array[N_events]}}
-
-        These are computed from helicity_angles using the sympy-lambdified wigner_capital_d,
-        which cannot be called with JAX traced values. By pre-computing the matrix elements
-        here (outside any JAX jit), the results are plain JAX arrays that can be passed as
-        explicit function arguments, allowing JAX to trace the amplitude without hitting the
-        lambdify barrier.
-        """
-        result = {}
-        for node in self.nodes:
-            if node.final_state:
-                continue
-            key = str(node.decay_tuple)
-            if key in result:
-                continue
-            angles = self.helicity_angles[node.decay_tuple]
-            phi, theta = angles.phi_rf, angles.theta_rf
-            psi = 0 if self.convention == "helicity" else -phi
-            J_parent_2 = node.quantum_numbers.angular.value2
-            d1, d2 = node.daughters
-            J1_2 = d1.quantum_numbers.angular.value2
-            J2_2 = d2.quantum_numbers.angular.value2
-            m_values = range(-J_parent_2, J_parent_2 + 1, 2)
-            n_values = sorted({h1 - h2
-                               for h1 in range(-J1_2, J1_2 + 1, 2)
-                               for h2 in range(-J2_2, J2_2 + 1, 2)})
-            result[key] = {
-                (J_parent_2, m, n): np.conj(wigner_capital_d(phi, theta, psi, J_parent_2, m, n))
-                for m in m_values
-                for n in n_values
-            }
-        return result
-
-    @property
-    def wigner_data(self) -> dict:
-        """
-        Returns a dict with the internal structures holding helicity angles and wigner matrices.
-        These are computed from the momenta of the chain. The dict can be passed back into the
-        amplitude functions (see the `external_wigner` options) to make these values explicit
-        function inputs instead of baked-in constants. This allows jax to trace them correctly.
-        """
-        return {"helicity_wigner_dict": self.helicity_wigner_dict}
-
-    @contextmanager
-    def _overridden_wigner_data(self, data: Optional[dict]):
-        """
-        Temporarily replaces the pre-computed Wigner D-matrix elements with those given in data.
-        The structure of data has to match the one returned by `wigner_data`.
-        If data is None or does not contain 'helicity_wigner_dict', nothing is replaced.
-        """
-        if data is None or "helicity_wigner_dict" not in data:
-            yield self
-            return
-        old = self.__dict__.get("helicity_wigner_dict", self._WIGNER_MISSING)
-        self.__dict__["helicity_wigner_dict"] = data["helicity_wigner_dict"]
-        try:
-            yield self
-        finally:
-            if old is self._WIGNER_MISSING:
-                self.__dict__.pop("helicity_wigner_dict", None)
-            else:
-                self.__dict__["helicity_wigner_dict"] = old
 
     @property
     def root(self):
@@ -340,33 +253,21 @@ class DecayChain:
 
     @property
     def chain_function(self):
-
-        def f(h0, lambdas:dict, arguments:dict):
-            amplitudes = [
-                 amplitude
-                for amplitude in self.root.amplitude(h0, lambdas, self.helicity_wigner_dict, arguments, self.momenta)
-            ]
+        def f(h0, lambdas:dict, arguments:dict, momenta:dict):
+            helicity_angles = self.topology.helicity_angles(momenta=momenta, convention=self.convention)
+            amplitudes = list(self.root.amplitude(h0, lambdas, arguments, momenta, helicity_angles))
             prefactor = 1/(self.root.resonance.quantum_numbers.angular.value2 + 1)**0.5
-            return prefactor * sum(
-               amplitudes
-            )
-
+            return prefactor * sum(amplitudes)
         return f
-    
+
     @property
     def matrix(self):
-        """
-        Returns a function, which will not produce the chain function for a single set of helicities, but will rather return a matrix with all possible helicities. 
-        The matrix will be an actual matrix and not a dict, since we want to use it later to perform matrix operations.
-        """
-
         f = self.chain_function
-        def matrix(h0, arguments:dict):
+        def matrix(h0, arguments:dict, momenta:dict):
             return {
-                tuple([lambdas[key] for key in self.final_state_keys]): f(h0, lambdas, arguments)
+                tuple([lambdas[key] for key in self.final_state_keys]): f(h0, lambdas, arguments, momenta)
                 for lambdas in self.helicities
             }
-        
         return matrix
     
     def generate_couplings(self):
@@ -392,125 +293,51 @@ class DecayChain:
 
     def unpolarized_amplitude(self, ls_couplings: dict, complex_couplings=True) -> tuple[Callable, list[str]]:
         """
-        Returns a function that calculates the unpolarized amplitude of the decay chain.
+        Returns a per-event function f(momenta, *coupling_args) -> scalar intensity.
+        Vectorize with jax.vmap over the momenta argument.
         """
         def f(arguments:dict):
+            momenta = arguments.pop("momenta")
             return sum(
-                    abs(v)**2 
-                    for h0 in self.root_resonance.quantum_numbers.angular.projections()
-                    for v in self.matrix(h0, arguments).values()
-                )
-
-        return _create_function(self.resonance_params, ls_couplings, f, complex_couplings=complex_couplings)
+                abs(v)**2
+                for h0 in self.root_resonance.quantum_numbers.angular.projections()
+                for v in self.matrix(h0, arguments, momenta).values()
+            )
+        return _create_function(["momenta"] + self.resonance_params, ls_couplings, f, complex_couplings=complex_couplings)
 
 class AlignedChain(DecayChain):
     """
     The aligned version of the decay chain. This is used to calculate the aligned amplitude, which is the amplitude in the final state helicity frame as defined by a reference topology or reference chain.
     """
 
-    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], momenta: dict, final_state_qn: dict[int, QN | Particle], reference:Union[Topology, DecayChain], wigner_rotation: dict[tuple, WignerAngles]= None, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
-        """
-        Initializes an AlignedChain object. The object will contain a list of DecayChain objects.
-        Parameters:
-        topology: Topology
-            The topology of the decay chain
-        resonances: dict[tuple, Resonance]
-            A dictionary with the resonances of the decay chain. The keys are the tuples of the nodes, the values are the resonances
-        momenta: dict
-            The momenta of the decay chain
-        final_state_qn: dict[tuple, QN]
-            A dictionary with the quantum numbers of the final state particles
-        reference: Topology
-            The reference topology for the decay chain. This is used to calculate the alignment.
-        wigner_rotation: dict[tuple, WignerAngles]
-            A dictionary with the Wigner angles for the decay chain. This is used to calculate the alignment. Calculated if not provided.
-        convention: str
-            The convention of the decay chain. This is either "helicity" or "minus_phi". The default is "helicity"
-        """
+    def __init__(self, topology:Topology, resonances: dict[tuple, Resonance], final_state_qn: dict[int, QN | Particle], reference:Union[Topology, DecayChain], convention:Literal["helicity", "minus_phi"]="helicity") -> None:
+        if isinstance(reference, DecayChain):
+            if reference.convention != convention:
+                raise ValueError(f"Reference and chain must have the same convention. Found reference: {reference.convention} and self: {convention}!")
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
-        self.topology = topology
-
-        super().__init__(topology, resonances, momenta, final_state_qn, convention)
-        if wigner_rotation is None:
-            if isinstance(reference, DecayChain):
-                if reference.convention != convention:
-                    raise ValueError(f"Reference and chain must have the same convention. Found reference: {reference.convention} and self: {convention}!")
-            self.wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention)
-        else:
-            self.wigner_rotation = wigner_rotation
-        # we want the tuple versions of the helicities, since we use them as tuples
-        self.wigner_dict = {
-            key: {
-                (h_, h): np.conj(wigner_capital_d(*self.wigner_rotation[key], final_state_qn[key].angular.value2, h, h_))
-                for h in final_state_qn[key].angular.projections(return_int=True)
-                for h_ in final_state_qn[key].angular.projections(return_int=True)
-            }
-            for key in self.final_state_keys
-        }
+        super().__init__(topology, resonances, final_state_qn, convention)
 
     def to_tuple(self, lambdas:dict):
         return tuple([lambdas[key] for key in self.final_state_keys])
 
     @property
-    def wigner_data(self) -> dict:
-        data = super().wigner_data
-        data["wigner_dict"] = self.wigner_dict
-        return data
-
-    @contextmanager
-    def _overridden_wigner_data(self, data: Optional[dict]):
-        if data is None:
-            yield self
-            return
-        if "wigner_dict" in data:
-            old_wigner_dict = self.wigner_dict
-            self.wigner_dict = data["wigner_dict"]
-            try:
-                with super()._overridden_wigner_data(data):
-                    yield self
-            finally:
-                self.wigner_dict = old_wigner_dict
-        else:
-            with super()._overridden_wigner_data(data):
-                yield self
-
-    @property
     def aligned_matrix(self):
-        """
-        Returns a function, which will return the amplitude for a given set of helicities.
-        The function will use the matrix to perform the calculation.
-        """
         m = self.matrix
-        def f(h0, arguments:dict):
-            matrix = m(h0, arguments)
-            aligned_matrix = {
+        def f(h0, arguments:dict, momenta:dict):
+            matrix = m(h0, arguments, momenta)
+            wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention)
+            return {
                 self.to_tuple(lambdas): sum(
                     matrix[self.to_tuple(lambdas_)]
                     * np.prod(np.array([
-                            self.wigner_dict[key][(lambdas[key], lambdas_[key])] for key in self.final_state_keys
-                        ]), 
-                        axis=0)
+                        np.conj(wigner_capital_d(*wigner_rotation[key], self.final_state_qn[key].angular.value2, lambdas_[key], lambdas[key]))
+                        for key in self.final_state_keys
+                    ]), axis=0)
                     for lambdas_ in self.helicities
                 )
                 for lambdas in self.helicities
             }
-            return aligned_matrix
-        
         return f
-    
-    def aligned_matrix_function(self, couplings:dict) -> Callable:
-        """
-        Returns a function, which will return the amplitude for a given set of helicities. 
-        The function will use the matrix to perform the calculation.
-        """
-        aligned_matrix = self.aligned_matrix
-        def f(arguments: dict):
-            h0 = arguments.pop("h0")
-            return aligned_matrix(h0, arguments)
-
-        return _create_function(
-            ["h0"] + self.resonance_params, couplings, f
-        )
 
     
 class MultiChain(DecayChain):
@@ -539,12 +366,11 @@ class MultiChain(DecayChain):
 
     @classmethod
     def from_chains(cls, chains: list[DecayChain]) -> "MultiChain":
-        new_obj = cls(chains[0].topology, chains[0].momenta, chains[0].final_state_qn, chains=chains)
         if any(chain.topology != chains[0].topology for chain in chains):
             raise ValueError("All chains must have the same topology")
-        return new_obj
+        return cls(chains[0].topology, chains[0].final_state_qn, chains=chains)
 
-    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[int, QN | Particle], resonances: Optional[dict[tuple, tuple[Resonance]]]=None, chains: Optional[list[DecayChain]]=None, convention:Optional[Literal["minus_phi", "helicity"]]="helicity") -> None:
+    def __init__(self, topology:Topology, final_state_qn: dict[int, QN | Particle], resonances: Optional[dict[tuple, tuple[Resonance]]]=None, chains: Optional[list[DecayChain]]=None, convention:Optional[Literal["minus_phi", "helicity"]]="helicity") -> None:
         """
         Initializes a MultiChain object. The object will contain a list of DecayChain objects.
 
@@ -580,7 +406,7 @@ class MultiChain(DecayChain):
             if any(node.value not in resonances and node.tuple not in resonances for node in resonant_nodes):
                 warnings.warn(f"Not all nodes have a resonance assigned: {resonances.keys()}, {list(map(lambda x: x.value,resonant_nodes))}")
             self.chains = [
-                DecayChain(topology, chain_definition, momenta, final_state_qn, convention)
+                DecayChain(topology, chain_definition, final_state_qn, convention)
                 for chain_definition in type(self).create_chains(resonances, topology)
             ]
             def chain_filter(chain: DecayChain) -> bool:
@@ -598,12 +424,13 @@ class MultiChain(DecayChain):
             raise ValueError("Either resonances or chains must be provided")
         if chains is not None and resonances is not None:
             raise ValueError("Either resonances or chains must be provided")
+        self.final_state_qn = final_state_qn
 
     @property
     def chain_function(self) -> Callable:
-        def f(h0, lambdas:dict, arguments:dict):
+        def f(h0, lambdas:dict, arguments:dict, momenta:dict):
             return sum(
-                chain.chain_function(h0, lambdas, arguments)
+                chain.chain_function(h0, lambdas, arguments, momenta)
                 for chain in self.chains
             )
         return f
@@ -637,9 +464,9 @@ class MultiChain(DecayChain):
                 for key in dtcs[0].keys()
             }
 
-        def matrix(h0, arguments:dict):
+        def matrix(h0, arguments:dict, momenta:dict):
             return dict_sum(
-                *[chain.matrix(h0, arguments)
+                *[chain.matrix(h0, arguments, momenta)
                 for chain in self.chains]
             )
         return matrix
@@ -660,41 +487,6 @@ class MultiChain(DecayChain):
     def helicity_tuples(self):
         return self.chains[0].helicity_tuples
 
-    @cached_property
-    def helicity_wigner_dict(self) -> dict:
-        # Merge all chains: include (J2, m, n) keys from every resonance.
-        # The J2 in the key prevents conflicts when different chains have
-        # different-spin resonances at the same node.
-        merged = {}
-        for chain in self.chains:
-            for node_key, mn_dict in chain.helicity_wigner_dict.items():
-                if node_key not in merged:
-                    merged[node_key] = {}
-                merged[node_key].update(mn_dict)
-        return merged
-
-    @property
-    def wigner_data(self) -> dict:
-        # all chains share the same topology, momenta and convention
-        return {"helicity_wigner_dict": self.helicity_wigner_dict}
-
-    @contextmanager
-    def _overridden_wigner_data(self, data: Optional[dict]):
-        if not data or "helicity_wigner_dict" not in data:
-            yield self
-            return
-        old = {chain: chain.__dict__.get("helicity_wigner_dict", self._WIGNER_MISSING) for chain in self.chains}
-        for chain in self.chains:
-            chain.__dict__["helicity_wigner_dict"] = data["helicity_wigner_dict"]
-        try:
-            yield self
-        finally:
-            for chain in self.chains:
-                if old[chain] is self._WIGNER_MISSING:
-                    chain.__dict__.pop("helicity_wigner_dict", None)
-                else:
-                    chain.__dict__["helicity_wigner_dict"] = old[chain]
-
     def generate_couplings(self):
         """
         Returns all LS couplings for the decay chain
@@ -713,86 +505,36 @@ class MultiChain(DecayChain):
 class AlignedMultiChain(MultiChain):
     @classmethod
     def from_chains(cls, chains: list[DecayChain], reference:Union[Topology, DecayChain]) -> "AlignedMultiChain":
-        return cls(
-            chains[0].topology,
-            chains[0].momenta,
-            chains[0].final_state_qn,
-            reference,
-            chains=chains
-        )
+        return cls(chains[0].topology, chains[0].final_state_qn, reference, chains=chains)
 
     @classmethod
     def from_multichain(cls, multichain: MultiChain, reference:Union[Topology, DecayChain]) -> "AlignedMultiChain":
-        return cls.from_chains(
-            multichain.chains,
-            reference
-        )
+        return cls.from_chains(multichain.chains, reference)
 
-    def __init__(self, topology:Topology, momenta: dict, final_state_qn: dict[int, QN | Particle], reference:Union[Topology, DecayChain], resonances: Optional[dict[tuple, tuple[Resonance]] | ResonanceDict] = None, chains: Optional[list[DecayChain]] = None, wigner_rotation: dict[tuple, WignerAngles]= None, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
-        super().__init__(topology, momenta, final_state_qn, resonances=resonances, chains=chains, convention=convention)
+    def __init__(self, topology:Topology, final_state_qn: dict[int, QN | Particle], reference:Union[Topology, DecayChain], resonances: Optional[dict[tuple, tuple[Resonance]] | ResonanceDict] = None, chains: Optional[list[DecayChain]] = None, convention:Literal["helicity", "minus_phi"]="helicity") -> None:
+        super().__init__(topology, final_state_qn, resonances=resonances, chains=chains, convention=convention)
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
-        if wigner_rotation is None:
-            self.wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention)
-        else:
-            self.wigner_rotation = wigner_rotation
-
-        self.wigner_dict = {
-            key: {
-                (h_, h): np.conj(wigner_capital_d(*self.wigner_rotation[key], final_state_qn[key].angular.value2, h, h_))
-                for h in final_state_qn[key].angular.projections(return_int=True)
-                for h_ in final_state_qn[key].angular.projections(return_int=True)
-            }
-            for key in self.final_state_keys
-        }
 
     def to_tuple(self, lambdas:dict):
         return tuple([lambdas[key] for key in self.final_state_keys])
 
     @property
-    def wigner_data(self) -> dict:
-        data = dict(super().wigner_data)  # MultiChain.wigner_data with merged helicity_wigner_dict
-        data["wigner_dict"] = self.wigner_dict
-        return data
-
-    @contextmanager
-    def _overridden_wigner_data(self, data: Optional[dict]):
-        if data is None:
-            yield self
-            return
-        if "wigner_dict" in data:
-            old_wigner_dict = self.wigner_dict
-            self.wigner_dict = data["wigner_dict"]
-            try:
-                with super()._overridden_wigner_data(data):
-                    yield self
-            finally:
-                self.wigner_dict = old_wigner_dict
-        else:
-            with super()._overridden_wigner_data(data):
-                yield self
-
-    @property
     def aligned_matrix(self):
-        """
-        Returns a function, which will return the amplitude for a given set of helicities. 
-        The function will use the matrix to perform the calculation.
-        """
         m = self.matrix
-        def f(h0,  arguments:dict):
-            matrix = m(h0, arguments)
-            aligned_matrix = {
+        def f(h0, arguments:dict, momenta:dict):
+            matrix = m(h0, arguments, momenta)
+            wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention)
+            return {
                 self.to_tuple(lambdas): sum(
                     matrix[self.to_tuple(lambdas_)]
                     * np.prod(np.array([
-                            self.wigner_dict[key][(lambdas[key], lambdas_[key])] for key in self.final_state_keys
-                        ]), 
-                        axis=0)
+                        np.conj(wigner_capital_d(*wigner_rotation[key], self.final_state_qn[key].angular.value2, lambdas_[key], lambdas[key]))
+                        for key in self.final_state_keys
+                    ]), axis=0)
                     for lambdas_ in self.helicities
                 )
                 for lambdas in self.helicities
             }
-            return aligned_matrix
-        
         return f
 
 

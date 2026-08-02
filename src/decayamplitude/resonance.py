@@ -145,7 +145,7 @@ class Resonance:
         return self.__str__()
     
     @convert_angular
-    def helicity_from_ls(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], couplings:dict[LSTuple, float], arguments:dict, d1_mass, d2_mass):
+    def helicity_from_ls(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], couplings:dict[LSTuple, float], arguments:dict, mass, d1_mass, d2_mass):
         """
         This function translates from the ls basis into the helicity basis.
         The linehspae funcitons can depend on L and S.
@@ -167,6 +167,8 @@ class Resonance:
             Format is {(l, s): value}
         arguments: dict
             The arguments for the lineshape function. The keys are the names of the arguments.
+        mass: float
+            Invariant mass of the resonance (the decaying node)
         d1_mass: float
             Invariant mass of the first daughter
         d2_mass: float
@@ -178,7 +180,7 @@ class Resonance:
 
         return sum(
             coupling *
-            self.lineshape(l, s, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass)) *
+            self.lineshape(mass, l, s, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass)) *
             (l + 1) ** 0.5 /
             (self.quantum_numbers.angular.value2 + 1) ** 0.5 *
             clebsch_gordan(j1, h1, j2, -h2, s, h1- h2) *
@@ -230,18 +232,19 @@ class Resonance:
                 }
             }
     
-    def direct_helicity_coupling(self, arguments, h1, h2, d1_mass, d2_mass):
-        return arguments[self.id]["couplings"][(h1, h2)] * self.lineshape(h1, h2, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass))
-    
+    def direct_helicity_coupling(self, arguments, h1, h2, mass, d1_mass, d2_mass):
+        return arguments[self.id]["couplings"][(h1, h2)] * self.lineshape(mass, h1, h2, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass))
+
     @convert_angular
-    def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict, d1_mass, d2_mass):
+    def amplitude(self, h0:Union[Angular, int], h1:Union[Angular, int], h2:Union[Angular, int], arguments:dict, mass, d1_mass, d2_mass):
+        mass = np.nan_to_num(mass, nan=0.0, posinf=0.0, neginf=0.0)
         d1_mass = np.nan_to_num(d1_mass, nan=0.0, posinf=0.0, neginf=0.0)
         d2_mass = np.nan_to_num(d2_mass, nan=0.0, posinf=0.0, neginf=0.0)
         if self.scheme == "ls":
             couplings = self.__construct_couplings(arguments)
-            coupling = self.helicity_from_ls(h0, h1, h2, couplings, arguments, d1_mass, d2_mass)
+            coupling = self.helicity_from_ls(h0, h1, h2, couplings, arguments, mass, d1_mass, d2_mass)
         elif self.scheme == "helicity":
-            coupling = self.direct_helicity_coupling(arguments, h1, h2, d1_mass, d2_mass)
+            coupling = self.direct_helicity_coupling(arguments, h1, h2, mass, d1_mass, d2_mass)
         else:
             raise ValueError(f"Scheme must be either 'ls' or 'helicity' but is {self.scheme}")
         # particle 2 convention from Jacob-Wick is used!
