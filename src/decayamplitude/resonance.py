@@ -15,6 +15,27 @@ from decayamplitude.backend import numpy as np
 LSTuple = namedtuple("LSTuple", ["l", "s"])
 HelicityTuple = namedtuple("HelicityTuple", ["h1", "h2"])
 
+
+def _maybe_wrap_lineshape(lineshape):
+    """
+    Transparently adapt a DecayShape Lineshape instance to the decayamplitude API.
+
+    decayamplitude calls: lineshape(mass, l, s_spin, *params, d1_mass=None, d2_mass=None)
+    DecayShape expects:   instance(l, s_spin, *params, s=mass**2, d1_mass=None, d2_mass=None)
+
+    No-op when decayshape is not installed or the object is not a Lineshape instance.
+    """
+    try:
+        from decayshape.base import Lineshape as _DSBase
+    except ImportError:
+        return lineshape
+    if not isinstance(lineshape, _DSBase):
+        return lineshape
+    def _ds_wrapper(mass, l, s_spin, *params, d1_mass=None, d2_mass=None):
+        return lineshape(l, s_spin, *params, s=mass**2,
+                         d1_mass=d1_mass, d2_mass=d2_mass)
+    return _ds_wrapper
+
 class Resonance:
     __instances = {}
     __named_instances = {}
@@ -46,6 +67,7 @@ class Resonance:
         if lineshape is not None:
             if argnames is None:
                 raise ValueError("If a lineshape is provided, the argument names must be provided as well")
+            lineshape = _maybe_wrap_lineshape(lineshape)
             self.register_lineshape(lineshape, argnames)
             self.__lineshape = lineshape
             self.__parameter_names = argnames
