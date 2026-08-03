@@ -35,7 +35,7 @@ dependencies = [
   "jaxlib",
   "numpy",
   "sympy",
-  "decayangle==1.1.2"
+  "decayangle==1.1.4"
 ]
 
 [project.urls]
