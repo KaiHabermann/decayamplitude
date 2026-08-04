@@ -1,6 +1,6 @@
 from typing import Callable
 
-def _create_function(names:list[str], ls_couplings:dict[int, dict[str: dict[tuple, float]]], f, complex_couplings=False) -> tuple[Callable, list[str]]:
+def _create_function(names: list[str], ls_couplings: dict[int, dict[str, dict[tuple, float]]], f, complex_couplings=False) -> tuple[Callable, list[str]]:
     from decayamplitude.resonance import LSTuple, Resonance
     import inspect
     import types
@@ -52,7 +52,7 @@ def _create_function(names:list[str], ls_couplings:dict[int, dict[str: dict[tupl
     parameters = [inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in full_names]
     sig = inspect.Signature(parameters)
     func.__signature__ = sig
-    return func, full_names
+    return func, full_names.copy()
 
 def sanitize(name: str) -> str:
     """

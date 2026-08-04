@@ -1,9 +1,10 @@
 from typing import Union, Generator
+from math import lgamma as _lgamma, exp as _exp
 from sympy import Rational, Symbol, lambdify
 from sympy.physics.quantum.cg import CG
 from sympy.physics.quantum.spin import Rotation
 from decayamplitude.backend import numpy as np
-from functools import lru_cache as cache
+from functools import lru_cache
 from sympy.abc import x as placeholder
 from itertools import product
 
@@ -155,7 +156,7 @@ class QN:
         return self.angular.projections(return_int=return_int)
         
 
-@cache
+@lru_cache(maxsize=None)
 def clebsch_gordan(j1, m1, j2, m2, J, M):
     """
     Return clebsch-Gordan coefficient. Note that all arguments should be multiplied by 2
@@ -180,7 +181,7 @@ def clebsch_gordan(j1, m1, j2, m2, J, M):
     return cg
 
 
-@cache
+@lru_cache(maxsize=None)
 def get_wigner_function(j: int, m1: int, m2: int):
     """
     Return Wigner small-d function. Note that all arguments should be multiplied by 2
@@ -191,25 +192,58 @@ def get_wigner_function(j: int, m1: int, m2: int):
     d = lambdify(placeholder, d, "numpy")
     return d
 
-def wigner_small_d(theta, j, m1, m2):
-    """Calculate Wigner small-d function. Needs sympy.
-      theta : angle
-      j : spin (in units of 1/2, e.g. 1 for spin=1/2)
-      m1 and m2 : spin projections (in units of 1/2)
-
-    :param theta:
-    :param j:
-    :param m1: before rotation
-    :param m2: after rotation
-
-    """
+def wigner_small_d_sympy(theta, j, m1, m2):
+    """Wigner small-d via sympy/lambdify. Kept for numerical validation.
+    j, m1, m2 are 2× physical values. Cannot be used inside jax.jit."""
     d_func = get_wigner_function(j, m1, m2)
     d = d_func(theta)
     d = np.array(d, dtype=np.float64)
-    # d[np.isnan(d)] = 0
     d = np.nan_to_num(d, copy=True, nan=0.0)
-    d = d.astype(np.complex128)
-    return d
+    return d.astype(np.complex128)
+
+
+@lru_cache(maxsize=None)
+def _wigner_d_coefficients(j2: int, m1_2: int, m2_2: int):
+    """Pre-compute scalar (coeff, cos_power, sin_power) terms for
+    d^j_{m'm}(β) = Σ coeff · cos(β/2)^cos_power · sin(β/2)^sin_power.
+
+    All args are 2× physical values (integers so half-integers are exact).
+    Formula: https://handwiki.org/wiki/Wigner_D-matrix
+    """
+    if abs(m1_2) > j2 or abs(m2_2) > j2:
+        return ()   # d = 0 for projections outside [-j, j]
+    jp_m1 = (j2 + m1_2) // 2   # j + m'
+    jm_m1 = (j2 - m1_2) // 2   # j - m'
+    jp_m2 = (j2 + m2_2) // 2   # j + m
+    jm_m2 = (j2 - m2_2) // 2   # j - m
+    log_pre = 0.5 * (_lgamma(jp_m1 + 1) + _lgamma(jm_m1 + 1) +
+                     _lgamma(jp_m2 + 1) + _lgamma(jm_m2 + 1))
+    mp_m_2 = (m1_2 - m2_2) // 2   # m' - m  (always an integer)
+    s_min = max(0, -mp_m_2)        # max(0, m - m')
+    s_max = min(jp_m2, jm_m1)     # min(j + m, j - m')
+    terms = []
+    for s in range(s_min, s_max + 1):
+        log_den = (_lgamma(jp_m2 - s + 1) + _lgamma(s + 1) +
+                   _lgamma(mp_m_2 + s + 1) + _lgamma(jm_m1 - s + 1))
+        sign = 1 if (mp_m_2 + s) % 2 == 0 else -1
+        coeff = sign * _exp(log_pre - log_den)
+        cos_pow = j2 - mp_m_2 - 2 * s   # 2j + m - m' - 2s  (≥ 0)
+        sin_pow = mp_m_2 + 2 * s         # m' - m + 2s       (≥ 0)
+        terms.append((coeff, cos_pow, sin_pow))
+    return tuple(terms)
+
+
+def wigner_small_d(theta, j, m1, m2):
+    """Wigner small-d matrix element. j, m1, m2 are 2× physical values (integers).
+    JAX-traceable: works inside jit and vmap."""
+    terms = _wigner_d_coefficients(j, m1, m2)
+    if not terms:
+        return np.zeros_like(np.asarray(theta, dtype=np.float64)).astype(np.complex128)
+    cb2 = np.cos(theta * 0.5)
+    sb2 = np.sin(theta * 0.5)
+    result = sum(float(c) * cb2**cp * sb2**sp for c, cp, sp in terms)
+    return np.asarray(result, dtype=np.complex128)
+
 
 @convert_angular
 def wigner_capital_d(phi, theta, psi, j, m1, m2):

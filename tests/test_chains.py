@@ -57,14 +57,12 @@ def test_multi_chain():
     chain1 = MultiChain(
         topology = topology1,
         resonances = resonances_hadronic,
-        momenta = momenta,
         final_state_qn = final_state_qn
     )
 
     chain2 = MultiChain(
         topology = topology2,
         resonances = resonances_hadronic,
-        momenta = momenta,
         final_state_qn = final_state_qn
     )
 
@@ -125,14 +123,12 @@ def test_single_chain_unpolarized_amplitude():
     chain1 = MultiChain(
         topology = topology1,
         resonances = resonances_hadronic,
-        momenta = momenta,
         final_state_qn = final_state_qn
     )
 
     chain2 = MultiChain(
         topology = topology2,
         resonances = resonances_hadronic,
-        momenta = momenta,
         final_state_qn = final_state_qn
     )
 
@@ -150,7 +146,7 @@ def test_single_chain_unpolarized_amplitude():
     
     # Call unpolarized_amplitude on the single chain
     func, params = single_chain.unpolarized_amplitude(ls_couplings)
-    func(*([1] * len(params)))
+    func(momenta, *([1] * (len(params) - 1)))
 
 
 def test_single_chains_are_decay_chains():
@@ -197,14 +193,12 @@ def test_single_chains_are_decay_chains():
     chain1 = MultiChain(
         topology = topology1,
         resonances = resonances_hadronic,
-        momenta = momenta,
         final_state_qn = final_state_qn
     )
 
     chain2 = MultiChain(
         topology = topology2,
         resonances = resonances_hadronic,
-        momenta = momenta,
         final_state_qn = final_state_qn
     )
 
@@ -221,7 +215,48 @@ def test_single_chains_are_decay_chains():
         assert not isinstance(chain, AlignedMultiChain), f"single_chains should not contain AlignedMultiChain instances, got {type(chain)}"
 
 
+def test_helicity_scheme_unpolarized_amplitude():
+    """Test that Resonances with scheme='helicity' can produce an unpolarized amplitude."""
+    momenta = {
+        1: np.array([1, 0.1, 0.4, 3]),
+        2: np.array([0.5, -0.1, -0.4, 3]),
+        3: np.array([1.1, 0.2, 0.5, 3]),
+        4: np.array([0.6, -0.2, -0.5, 3]),
+    }
+    final_state_qn = {
+        1: QN(0, 1),
+        2: QN(0, 1),
+        3: QN(1, 1),
+        4: QN(1, -1),
+    }
+
+    resonances = {
+        (1, 2): [
+            Resonance(Node((1, 2)), quantum_numbers=QN(0, 1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="R12_helicity", scheme="helicity"),
+        ],
+        (3, 4): [
+            Resonance(Node((3, 4)), quantum_numbers=QN(2, -1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="R34_helicity", scheme="helicity"),
+        ],
+        0: [Resonance(Node(0), quantum_numbers=QN(0, 1), lineshape=constant_lineshape, argnames=[], preserve_partity=False, name="B0_helicity", scheme="helicity")],
+    }
+
+    topology = Topology(0, decay_topology=((1, 2), (3, 4)))
+    momenta = topology.to_rest_frame(momenta)
+
+    chain = MultiChain(
+        topology=topology,
+        resonances=resonances,
+        final_state_qn=final_state_qn,
+    )
+
+    combined = ChainCombiner([chain])
+    func, params = combined.unpolarized_amplitude(combined.generate_couplings())
+    result = func(momenta, *([1] * (len(params) - 1)))
+    assert result is not None
+
+
 if __name__ == "__main__":
     test_multi_chain()
     test_single_chain_unpolarized_amplitude()
     test_single_chains_are_decay_chains()
+    test_helicity_scheme_unpolarized_amplitude()

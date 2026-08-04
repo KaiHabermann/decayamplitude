@@ -11,6 +11,21 @@
 # THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  
 
+import os
+os.environ['XLA_FLAGS'] = "--xla_disable_hlo_passes=constant_folding"
+os.environ["JAX_USE_SIMPLIFIED_JAXPR_CONSTANTS"] = "True"
+
+# Must configure decayangle backend BEFORE any decayangle/decayamplitude imports
+# because decay_topology.py binds `cb = cfg.backend` at module load time.
+from decayangle.config import config as decayangle_config
+decayangle_config.backend = "jax"
+decayangle_config.use_rust = False
+decayangle_config.sorting = "value"
+
+import jax
+jax.config.update("jax_enable_x64", True)
+from jax import jit
+
 from decayamplitude.resonance import Resonance
 from decayamplitude.rotation import QN
 from decayamplitude.chain import MultiChain
@@ -18,27 +33,6 @@ from decayamplitude.combiner import ChainCombiner
 from decayamplitude.particle import Particle, DecaySetup
 from decayamplitude.backend import numpy as np
 from decayangle.decay_topology import Topology, Node
-from decayangle.config import config as decayangle_config
-from decayamplitude.kinematics_helpers import mass_from_node
-
-import jax
-
-decayangle_config.backend = "numpy"
-decayangle_config.sorting = "value"  # this makes sure, that the order of entries in a node is handeled internaly and we do not have to worry about it
-
-if hasattr(decayangle_config, "parallel_cores"):
-    decayangle_config.parallel_cores = "auto"
-    print("parallel_cores: ", decayangle_config.get_parallel_cores())
-if hasattr(decayangle_config, "parallel_chunk_size"):
-    decayangle_config.parallel_chunk_size = "auto"
-    print("parallel_chunk_size: ", decayangle_config.get_parallel_chunk_size())
-
-import os 
-os.environ['XLA_FLAGS'] = "--xla_disable_hlo_passes=constant_folding"
-os.environ["JAX_USE_SIMPLIFIED_JAXPR_CONSTANTS"] = "True"
-jax.config.update("jax_enable_x64", True)
-
-from jax import jit, grad
 
 def constant_lineshape(L, S, *args):
     #This is a dummy lineshape function, it does nothing, but is needed for the code to work
@@ -102,7 +96,6 @@ def amplitude(momenta):
         MultiChain(
             topology=topology,
             resonances = resonances,
-            momenta = momenta,
             final_state_qn = final_state_qn
         ) for topology in topologies
     ]
@@ -136,12 +129,12 @@ def test_Lb2LcD0K():
     unpolarized, param_names = full.unpolarized_amplitude(full.generate_couplings())
 
     start_params = {
-        name: full.start_parameters.get(name, 1.0) for name in param_names
+        name: full.start_parameters.get(name, 1.0) for name in param_names if name != "momenta"
     }
 
     print("Compiling unpolarized amplitude...")
     unpolarized = jit(unpolarized)
-    unolarized_values = unpolarized(**start_params)
+    unolarized_values = unpolarized(momenta, **start_params)
     print("Unpolarized amplitude compiled.")
     unolarized_values = onp.array(unolarized_values)
     
