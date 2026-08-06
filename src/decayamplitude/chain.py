@@ -28,6 +28,61 @@ def _stack_sum(terms):
     return np.sum(np.stack(terms, axis=0), axis=0)
 
 
+def _per_particle_alignment_factors(final_state_qn, final_state_keys, wigner_rotation):
+    """Precompute, for each final-state particle, conj(wigner_capital_d(...))
+    for every (lambda_, lambda) pair of that particle's OWN helicity states.
+
+    aligned_matrix's alignment sum runs over all (lambdas, lambdas_) helicity
+    TUPLE pairs, but the Wigner-D factor for a given final_state_key only
+    depends on that one particle's own two helicity values, not on the other
+    particles'. Naively recomputing wigner_capital_d inside the
+    O(len(helicities)^2) nested sum therefore does len(helicities)^2 * N
+    calls for N final-state particles, almost all of it identical repeated
+    work; looking values up in this small per-particle table instead needs
+    only sum((2j+1)^2) distinct calls, independent of how many OTHER
+    final-state particles there are.
+    """
+    return {
+        key: {
+            (m1, m2): np.conj(wigner_capital_d(*wigner_rotation[key], final_state_qn[key].angular.value2, m1, m2))
+            for m1 in final_state_qn[key].angular.projections(return_int=True)
+            for m2 in final_state_qn[key].angular.projections(return_int=True)
+        }
+        for key in final_state_keys
+    }
+
+
+def _alignment_rotation_matrix(helicities, final_state_keys, alignment_factors):
+    """Build the (n_helicities, n_helicities) alignment matrix
+    R[i, j] = prod_key alignment_factors[key][(helicities[j][key], helicities[i][key])]
+
+    so aligned_matrix's combination can be a single contraction (einsum)
+    against the per-lambda_ amplitude vector instead of a Python double loop
+    over all (lambdas, lambdas_) pairs. For spin-full final states
+    len(helicities) grows fast (product of each particle's 2j+1), and the
+    naive nested loop creates O(len(helicities)^2) small, disconnected
+    multiply/reduce ops -- empirically this, not the per-chain amplitude
+    recursion, is what makes XLA compile time blow up (see
+    benchmarks/benchmark_compile_time.py): going from 1 to 2 topologies only
+    grew the jaxpr by ~2.7x but grew compile time by ~14x, and compile time
+    barely changed when the number of resonances feeding the same
+    2-topology alignment was reduced from 4 to 1. Collapsing the alignment
+    into one matrix and one einsum turns those O(n^2) disconnected ops into
+    O(n^2) *connected* ones that XLA can fuse as a single kernel.
+    """
+    rows = []
+    for lambdas in helicities:
+        entries = []
+        for lambdas_ in helicities:
+            factor = None
+            for key in final_state_keys:
+                term = alignment_factors[key][(lambdas_[key], lambdas[key])]
+                factor = term if factor is None else factor * term
+            entries.append(factor)
+        rows.append(np.stack(entries, axis=0))
+    return np.stack(rows, axis=0)
+
+
 def _cached(cache, key, compute):
     """Look up `key` in `cache` (a dict, or None to disable caching), computing
     and storing it via `compute()` on a miss. Used for values that do not
@@ -408,16 +463,26 @@ class AlignedChain(DecayChain):
                 cache, (id(self), "wigner_rotation"),
                 lambda: self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention),
             )
+            # Per-particle Wigner-D lookup table instead of recomputing
+            # wigner_capital_d fresh for every (lambdas, lambdas_) tuple pair
+            # below -- see _per_particle_alignment_factors.
+            alignment_factors = _cached(
+                cache, (id(self), "alignment_factors"),
+                lambda: _per_particle_alignment_factors(self.final_state_qn, self.final_state_keys, wigner_rotation),
+            )
+            # The full (n_helicities, n_helicities) alignment matrix, h0-independent
+            # like alignment_factors -- see _alignment_rotation_matrix for why this
+            # is built once as a matrix and applied via one contraction, rather
+            # than combined per (lambdas, lambdas_) pair with a Python loop.
+            rotation_matrix = _cached(
+                cache, (id(self), "rotation_matrix"),
+                lambda: _alignment_rotation_matrix(self.helicities, self.final_state_keys, alignment_factors),
+            )
+            matrix_vec = np.stack([matrix[self.to_tuple(lambdas_)] for lambdas_ in self.helicities], axis=0)
+            result_vec = np.einsum("ij...,j...->i...", rotation_matrix, matrix_vec)
             return {
-                self.to_tuple(lambdas): sum(
-                    matrix[self.to_tuple(lambdas_)]
-                    * np.prod(np.array([
-                        np.conj(wigner_capital_d(*wigner_rotation[key], self.final_state_qn[key].angular.value2, lambdas_[key], lambdas[key]))
-                        for key in self.final_state_keys
-                    ]), axis=0)
-                    for lambdas_ in self.helicities
-                )
-                for lambdas in self.helicities
+                self.to_tuple(lambdas): result_vec[i]
+                for i, lambdas in enumerate(self.helicities)
             }
         return f
 
@@ -629,16 +694,26 @@ class AlignedMultiChain(MultiChain):
                 cache, (id(self), "wigner_rotation"),
                 lambda: self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention),
             )
+            # Per-particle Wigner-D lookup table instead of recomputing
+            # wigner_capital_d fresh for every (lambdas, lambdas_) tuple pair
+            # below -- see _per_particle_alignment_factors.
+            alignment_factors = _cached(
+                cache, (id(self), "alignment_factors"),
+                lambda: _per_particle_alignment_factors(self.final_state_qn, self.final_state_keys, wigner_rotation),
+            )
+            # The full (n_helicities, n_helicities) alignment matrix, h0-independent
+            # like alignment_factors -- see _alignment_rotation_matrix for why this
+            # is built once as a matrix and applied via one contraction, rather
+            # than combined per (lambdas, lambdas_) pair with a Python loop.
+            rotation_matrix = _cached(
+                cache, (id(self), "rotation_matrix"),
+                lambda: _alignment_rotation_matrix(self.helicities, self.final_state_keys, alignment_factors),
+            )
+            matrix_vec = np.stack([matrix[self.to_tuple(lambdas_)] for lambdas_ in self.helicities], axis=0)
+            result_vec = np.einsum("ij...,j...->i...", rotation_matrix, matrix_vec)
             return {
-                self.to_tuple(lambdas): sum(
-                    matrix[self.to_tuple(lambdas_)]
-                    * np.prod(np.array([
-                        np.conj(wigner_capital_d(*wigner_rotation[key], self.final_state_qn[key].angular.value2, lambdas_[key], lambdas[key]))
-                        for key in self.final_state_keys
-                    ]), axis=0)
-                    for lambdas_ in self.helicities
-                )
-                for lambdas in self.helicities
+                self.to_tuple(lambdas): result_vec[i]
+                for i, lambdas in enumerate(self.helicities)
             }
         return f
 

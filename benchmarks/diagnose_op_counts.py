@@ -50,7 +50,7 @@ def bw(mass, l, s, m0, gamma):
 def const_ls(mass, l, s, *a):
     return 1.0
 
-FINAL_STATE_QN = {1: QN(1, 1), 2: QN(0, -1), 3: QN(0, -1)}
+FINAL_STATE_QN = {1: QN(1, 1), 2: QN(2, -1), 3: QN(2, -1)}
 ROOT_QN = QN(1, 1)
 TOPO_DEFS = {(2, 3): ((2, 3), 1), (1, 3): ((1, 3), 2), (1, 2): ((1, 2), 3)}
 SPIN_SETS = {(2, 3): [0, 2, 4, 6], (1, 3): [1, 3, 5, 7], (1, 2): [1, 3, 5, 7]}
@@ -85,7 +85,7 @@ def rand_p(mass, n):
     E = onp.sqrt((p3 ** 2).sum(-1) + mass ** 2)
     return jnp.array(onp.concatenate([p3, E[:, None]], axis=1))
 
-M1, M2, M3 = 0.938272, 0.493677, 0.139570
+M1, M2, M3 = 0.938272, 0.89166, 0.77526
 momenta = {1: rand_p(M1, 3), 2: rand_p(M2, 3), 3: rand_p(M3, 3)}
 momenta = chains[0].topology.to_rest_frame(momenta)
 param_vals = tuple(1.0 for _ in coupling_names)

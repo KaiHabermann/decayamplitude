@@ -13,6 +13,15 @@ combined via ChainCombiner (Wigner-rotation alignment across all three
 topologies), for a total of 12 resonances and >100 free LS-coupling
 parameters. 100k phase-space events are used for the execution timing.
 
+All three final-state particles carry nonzero spin (1/2, 1, 1) rather than
+leaving any at spin-0. A spin-0 final-state particle has exactly one
+helicity state, which makes its contribution to the ChainCombiner alignment
+step (the sum over final-state helicity combinations in aligned_matrix)
+trivial. With every particle spin-full there are 2x3x3=18 helicity
+combinations instead of 2, so the benchmark is actually sensitive to the
+cost of the final-state Wigner-rotation alignment machinery, not just the
+per-chain amplitude recursion.
+
 Compile time is split into two phases using JAX's AOT API:
     trace   : jax.jit(f).lower(...)   Python tracing -> StableHLO
     compile : lowered.compile()       StableHLO -> XLA executable
@@ -48,14 +57,17 @@ from decayangle.decay_topology import Topology, Node
 
 N_EVENTS = int(sys.argv[1]) if len(sys.argv) > 1 else 100_000
 
-# 0 -> 1 2 3, roughly Lambda_c+ -> p K- pi+ masses (GeV)
-MOTHER_MASS = 2.28646
-M1, M2, M3 = 0.938272, 0.493677, 0.139570
+# 0 -> 1 2 3, roughly Lambda_b0 -> p K*(892)- rho(770)0 masses (GeV).
+# Mother bumped up to a Lambda_b-like mass since all three daughters are now
+# spin-full vector/baryon states (heavier than the pseudoscalar K/pi used
+# previously), and the sum of daughter masses must stay below it.
+MOTHER_MASS = 5.61951
+M1, M2, M3 = 0.938272, 0.89166, 0.77526
 
 FINAL_STATE_QN = {
-    1: QN(1, 1),    # spin-1/2, parity +   (baryon)
-    2: QN(0, -1),   # spin-0,   parity -   (kaon)
-    3: QN(0, -1),   # spin-0,   parity -   (pion)
+    1: QN(1, 1),    # spin-1/2, parity +   (baryon, e.g. proton)
+    2: QN(2, -1),   # spin-1,   parity -   (vector meson, e.g. K*(892))
+    3: QN(2, -1),   # spin-1,   parity -   (vector meson, e.g. rho(770))
 }
 ROOT_QN = QN(1, 1)  # spin-1/2 mother, weak decay -> parity not conserved
 
@@ -65,8 +77,8 @@ TOPO_DEFS = {
     (1, 2): ((1, 2), 3),
 }
 # spin2 sequences chosen so every entry yields a valid (non-empty) LS coupling
-# set for its node: integer spins for the meson-meson isobar, half-integer
-# spins for the two baryon-meson isobars (see benchmarks/_probe_qn.py).
+# set for its node: integer spins for the vector-vector isobar (2,3), half-integer
+# spins for the two baryon-vector isobars (1,3) and (1,2).
 SPIN_SETS = {
     (2, 3): [0, 2, 4, 6],
     (1, 3): [1, 3, 5, 7],
