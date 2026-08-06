@@ -37,21 +37,28 @@ class ChainCombiner:
 
     @property
     def combined_function(self):
-        """Returns a function f(h0, lambdas, arguments, momenta) that sums the aligned amplitudes of all chains."""
-        def f(h0, lambdas: dict, arguments: dict, momenta: dict):
+        """Returns a function f(h0, lambdas, arguments, momenta, cache=None) that sums the aligned amplitudes of all chains."""
+        def f(h0, lambdas: dict, arguments: dict, momenta: dict, cache: dict | None = None):
             amplitudes = [
-                chain.aligned_matrix(h0, arguments, momenta)[tuple(lambdas[k] for k in sorted(lambdas.keys()))]
+                chain.aligned_matrix(h0, arguments, momenta, cache=cache)[tuple(lambdas[k] for k in sorted(lambdas.keys()))]
                 for chain in self.aligned_chains
             ]
-            return sum(amplitudes) + self.reference.chain_function(h0, lambdas, arguments, momenta)
+            return sum(amplitudes) + self.reference.chain_function(h0, lambdas, arguments, momenta, cache=cache)
         return f
 
     @property
     def combined_matrix(self) -> Callable:
-        """Returns a function f(h0, arguments, momenta) that sums the aligned helicity matrices of all chains."""
-        def matrix(h0, arguments: dict, momenta: dict) -> dict:
-            matrices = [chain.aligned_matrix(h0, arguments, momenta) for chain in self.aligned_chains]
-            matrices.append(self.reference.matrix(h0, arguments, momenta))
+        """Returns a function f(h0, arguments, momenta, cache=None) that sums the aligned helicity matrices of all chains.
+
+        `cache`, if given, is a dict shared across multiple calls that only
+        differ in h0 (see DecayChainNode.amplitude): it lets the h0-independent
+        parts of every chain's computation be reused across h0 values instead
+        of being recomputed from scratch on every h0 (see unpolarized_amplitude,
+        which is the caller that actually loops over h0 and populates this).
+        """
+        def matrix(h0, arguments: dict, momenta: dict, cache: dict | None = None) -> dict:
+            matrices = [chain.aligned_matrix(h0, arguments, momenta, cache=cache) for chain in self.aligned_chains]
+            matrices.append(self.reference.matrix(h0, arguments, momenta, cache=cache))
             return {
                 key: sum(m[key] for m in matrices)
                 for key in matrices[0].keys()
@@ -80,10 +87,16 @@ class ChainCombiner:
 
         def f(arguments: dict):
             momenta = arguments.pop("momenta")
+            # One cache shared across all h0 values: everything below the top
+            # Wigner-D rotation at every node is independent of h0 (see
+            # DecayChainNode.amplitude), so it only needs to be computed on the
+            # first h0 and is reused for the rest instead of being redone from
+            # scratch per h0.
+            cache: dict = {}
             return sum(
                 abs(v)**2
                 for h0 in self.root_resonance.quantum_numbers.angular.projections()
-                for v in self.combined_matrix(h0, arguments, momenta).values()
+                for v in self.combined_matrix(h0, arguments, momenta, cache=cache).values()
             )
 
         names = ["momenta"] + self.resonance_params

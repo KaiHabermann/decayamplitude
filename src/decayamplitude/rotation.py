@@ -235,13 +235,28 @@ def _wigner_d_coefficients(j2: int, m1_2: int, m2_2: int):
 
 def wigner_small_d(theta, j, m1, m2):
     """Wigner small-d matrix element. j, m1, m2 are 2× physical values (integers).
-    JAX-traceable: works inside jit and vmap."""
+    JAX-traceable: works inside jit and vmap.
+
+    cos_pow/sin_pow are static Python ints (from the cached term list, not
+    traced), so cb2**cp / sb2**sp always lower to lax.integer_pow and keep the
+    exact 0**0 == 1 semantics needed at the physical boundaries theta=0/pi.
+    For 3+ terms the coeff*power reduction is done as one stack + one
+    jnp.sum instead of a Python-unrolled chain of multiplies/adds, which
+    collapses to a constant number of traced ops regardless of term count
+    (mul+add chain via sum() would otherwise grow as 2*len(terms)-1 ops).
+    Below 3 terms the direct sum is at least as cheap, so it is left alone.
+    """
     terms = _wigner_d_coefficients(j, m1, m2)
     if not terms:
         return np.zeros_like(np.asarray(theta, dtype=np.float64)).astype(np.complex128)
     cb2 = np.cos(theta * 0.5)
     sb2 = np.sin(theta * 0.5)
-    result = sum(float(c) * cb2**cp * sb2**sp for c, cp, sp in terms)
+    if len(terms) <= 2:
+        result = sum(float(c) * cb2**cp * sb2**sp for c, cp, sp in terms)
+    else:
+        powers = np.stack([cb2**cp * sb2**sp for _, cp, sp in terms], axis=-1)
+        coeffs = np.array([float(c) for c, _, _ in terms], dtype=powers.dtype)
+        result = np.sum(coeffs * powers, axis=-1)
     return np.asarray(result, dtype=np.complex128)
 
 

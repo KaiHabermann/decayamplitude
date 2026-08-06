@@ -1,5 +1,6 @@
 from typing import Callable, Literal
 from itertools import product
+from functools import cached_property
 import warnings as warnings
 
 from decayangle.decay_topology import Topology, Node, HelicityAngles
@@ -11,6 +12,33 @@ from decayamplitude.backend import numpy as np
 
 from decayamplitude.utils import _create_function, sanitize
 from decayamplitude.kinematics_helpers import mass_from_node
+
+
+def _stack_sum(terms):
+    """Sum a list of same-shape JAX-array terms via stack + jnp.sum instead of
+    a Python-unrolled chain of `+` operators.
+
+    Mathematically equivalent up to floating-point summation order, but for
+    resonances/chains with several terms this collapses what would otherwise
+    be O(len(terms)) separate traced add ops into a single reduction, which is
+    what actually drives XLA compile time down (see benchmarks/benchmark_compile_time.py).
+    """
+    if len(terms) == 1:
+        return terms[0]
+    return np.sum(np.stack(terms, axis=0), axis=0)
+
+
+def _cached(cache, key, compute):
+    """Look up `key` in `cache` (a dict, or None to disable caching), computing
+    and storing it via `compute()` on a miss. Used for values that do not
+    depend on h0 -- e.g. inter-topology Wigner-rotation angles -- but would
+    otherwise be recomputed on every h0 iteration of the outer h0-loop in
+    ChainCombiner.unpolarized_amplitude."""
+    if cache is None:
+        return compute()
+    if key not in cache:
+        cache[key] = compute()
+    return cache[key]
 
 class DecayChainNode:
     """
@@ -162,7 +190,7 @@ class DecayChainNode:
         raise ValueError(f"Convention {self.convention} not known")
 
     @convert_angular
-    def amplitude(self, h0: Angular | int, lambdas: dict, arguments: dict, momenta: dict, helicity_angles: dict):
+    def amplitude(self, h0: Angular | int, lambdas: dict, arguments: dict, momenta: dict, helicity_angles: dict, cache: dict | None = None):
         """
         The amplitude of a single node given the helicity of the decaying particle.
         Recursively computes daughter amplitudes.
@@ -179,30 +207,48 @@ class DecayChainNode:
         helicity_angles: dict
             Per-event helicity angles for every internal node, keyed by decay_tuple.
             Pre-computed once at chain_function level from momenta.
+        cache: dict | None
+            Optional cache shared across calls that only differ in h0 (e.g. the
+            h0-loop in ChainCombiner.unpolarized_amplitude). Everything at this
+            node except the final Wigner-D rotation factor -- the daughter
+            sub-amplitudes and this node's own resonance coupling -- is
+            independent of h0, so it is computed once per (node, lambdas) and
+            reused across h0 values instead of being recomputed from scratch on
+            every h0 iteration. Pass None (the default) to disable and get the
+            original per-call behaviour.
         """
         if self.final_state:
             yield 1.
         else:
-            d1, d2 = self.daughters
-            d1_helicities = [lambdas[d1.tuple]] if d1.final_state else d1.quantum_numbers.projections(return_int=True)
-            d2_helicities = [lambdas[d2.tuple]] if d2.final_state else d2.quantum_numbers.projections(return_int=True)
-
-            mass = mass_from_node(self.node, momenta)
-            d1_mass = mass_from_node(d1.node, momenta)
-            d2_mass = mass_from_node(d2.node, momenta)
-
             angles = helicity_angles[self.decay_tuple]
             phi, theta = angles.phi_rf, angles.theta_rf
             psi = 0 if self.convention == "helicity" else -phi
             J2 = self.quantum_numbers.angular.value2
 
-            for h1 in d1_helicities:
-                for h2 in d2_helicities:
-                    for A_1 in d1.amplitude(h1, lambdas, arguments, momenta, helicity_angles):
-                        for A_2 in d2.amplitude(h2, lambdas, arguments, momenta, helicity_angles):
-                            d_val = np.conj(wigner_capital_d(phi, theta, psi, J2, h0, h1 - h2))
-                            A_self = self.resonance.amplitude(h0, h1, h2, arguments, mass, d1_mass, d2_mass) * d_val
-                            yield A_1 * A_2 * A_self * (J2 + 1)**0.5
+            cache_key = (id(self), tuple(sorted(lambdas.items()))) if cache is not None else None
+            if cache_key is not None and cache_key in cache:
+                h0_independent_terms = cache[cache_key]
+            else:
+                d1, d2 = self.daughters
+                d1_helicities = [lambdas[d1.tuple]] if d1.final_state else d1.quantum_numbers.projections(return_int=True)
+                d2_helicities = [lambdas[d2.tuple]] if d2.final_state else d2.quantum_numbers.projections(return_int=True)
+
+                mass = mass_from_node(self.node, momenta)
+                d1_mass = mass_from_node(d1.node, momenta)
+                d2_mass = mass_from_node(d2.node, momenta)
+
+                h0_independent_terms = []
+                for h1 in d1_helicities:
+                    for h2 in d2_helicities:
+                        for A_1 in d1.amplitude(h1, lambdas, arguments, momenta, helicity_angles, cache=cache):
+                            for A_2 in d2.amplitude(h2, lambdas, arguments, momenta, helicity_angles, cache=cache):
+                                coupling = self.resonance.amplitude(h1, h2, arguments, mass, d1_mass, d2_mass)
+                                h0_independent_terms.append((h1 - h2, A_1 * A_2 * coupling * (J2 + 1)**0.5))
+                if cache_key is not None:
+                    cache[cache_key] = h0_independent_terms
+
+            for m_diff, term in h0_independent_terms:
+                yield term * np.conj(wigner_capital_d(phi, theta, psi, J2, h0, m_diff))
 
 class DecayChain:
     """
@@ -233,47 +279,65 @@ class DecayChain:
         self.helicity_tuples = helicities
         self.resonance_list = list(resonances.values())
     
-    @property
+    @cached_property
     def nodes(self):
+        # The node tree only depends on (topology, resonances, final_state_qn,
+        # convention), all fixed at construction time, so it is safe -- and,
+        # since amplitude() rebuilds it from scratch on every access otherwise,
+        # important for trace time -- to build it once and reuse it.
         return list(
             DecayChainNode(node, self.resonances, self.final_state_qn, self.topology, self.convention)
             for node in self.topology.nodes.values()
         )
-    
+
     @property
     def final_state_nodes(self) -> list[DecayChainNode]:
         return [node for node in self.nodes if node.final_state]
 
 
-    @property
+    @cached_property
     def root(self):
         return DecayChainNode(self.topology.root, self.resonances, self.final_state_qn, self.topology, self.convention)
+
+    def _amplitude_for_lambdas(self, h0, lambdas: dict, arguments: dict, momenta: dict, helicity_angles: dict, cache: dict | None = None):
+        """Amplitude for one set of final-state helicities, given precomputed helicity_angles."""
+        amplitudes = list(self.root.amplitude(h0, lambdas, arguments, momenta, helicity_angles, cache=cache))
+        prefactor = 1/(self.root.resonance.quantum_numbers.angular.value2 + 1)**0.5
+        return prefactor * _stack_sum(amplitudes)
+
+    def _matrix_for_angles(self, h0, arguments: dict, momenta: dict, helicity_angles: dict, cache: dict | None = None) -> dict:
+        """Full helicity matrix given precomputed helicity_angles.
+
+        Used internally by MultiChain to share one helicity_angles computation
+        across all sibling resonance hypotheses for the same topology, instead
+        of every sibling recomputing it from momenta independently.
+        """
+        return {
+            tuple([lambdas[key] for key in self.final_state_keys]): self._amplitude_for_lambdas(h0, lambdas, arguments, momenta, helicity_angles, cache=cache)
+            for lambdas in self.helicities
+        }
 
     @property
     def chain_function(self):
         """
-        Returns a function f(h0, lambdas, arguments, momenta) -> complex amplitude
-        for a single set of helicities.
+        Returns a function f(h0, lambdas, arguments, momenta, cache=None) -> complex amplitude
+        for a single set of helicities. See DecayChainNode.amplitude for `cache`.
         """
-        def f(h0, lambdas: dict, arguments: dict, momenta: dict):
+        def f(h0, lambdas: dict, arguments: dict, momenta: dict, cache: dict | None = None):
             helicity_angles = self.topology.helicity_angles(momenta=momenta, convention=self.convention)
-            amplitudes = list(self.root.amplitude(h0, lambdas, arguments, momenta, helicity_angles))
-            prefactor = 1/(self.root.resonance.quantum_numbers.angular.value2 + 1)**0.5
-            return prefactor * sum(amplitudes)
+            return self._amplitude_for_lambdas(h0, lambdas, arguments, momenta, helicity_angles, cache=cache)
         return f
 
     @property
     def matrix(self):
         """
-        Returns a function f(h0, arguments, momenta) -> dict mapping final-state
-        helicity tuples to their amplitude, covering all helicity combinations.
+        Returns a function f(h0, arguments, momenta, cache=None) -> dict mapping
+        final-state helicity tuples to their amplitude, covering all helicity
+        combinations. See DecayChainNode.amplitude for `cache`.
         """
-        f = self.chain_function
-        def matrix(h0, arguments: dict, momenta: dict):
-            return {
-                tuple([lambdas[key] for key in self.final_state_keys]): f(h0, lambdas, arguments, momenta)
-                for lambdas in self.helicities
-            }
+        def matrix(h0, arguments: dict, momenta: dict, cache: dict | None = None):
+            helicity_angles = self.topology.helicity_angles(momenta=momenta, convention=self.convention)
+            return self._matrix_for_angles(h0, arguments, momenta, helicity_angles, cache=cache)
         return matrix
     
     def generate_couplings(self):
@@ -304,10 +368,11 @@ class DecayChain:
         """
         def f(arguments: dict):
             momenta = arguments.pop("momenta")
+            cache: dict = {}
             return sum(
                 abs(v)**2
                 for h0 in self.root_resonance.quantum_numbers.angular.projections()
-                for v in self.matrix(h0, arguments, momenta).values()
+                for v in self.matrix(h0, arguments, momenta, cache=cache).values()
             )
         return _create_function(["momenta"] + self.resonance_params, ls_couplings, f, complex_couplings=complex_couplings)
 
@@ -335,9 +400,14 @@ class AlignedChain(DecayChain):
         Wigner D-matrices computed fresh from momenta on every call.
         """
         m = self.matrix
-        def f(h0, arguments: dict, momenta: dict):
-            matrix = m(h0, arguments, momenta)
-            wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention)
+        def f(h0, arguments: dict, momenta: dict, cache: dict | None = None):
+            matrix = m(h0, arguments, momenta, cache=cache)
+            # relative_wigner_angles depends only on (topology, momenta), not on
+            # h0 -- cache it too so it isn't recomputed on every h0 iteration.
+            wigner_rotation = _cached(
+                cache, (id(self), "wigner_rotation"),
+                lambda: self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention),
+            )
             return {
                 self.to_tuple(lambdas): sum(
                     matrix[self.to_tuple(lambdas_)]
@@ -351,7 +421,7 @@ class AlignedChain(DecayChain):
             }
         return f
 
-    
+
 class MultiChain(DecayChain):
     @classmethod
     def create_chains(cls, resonances: dict[tuple, tuple[Resonance]] | ResonanceDict, topology: Topology) -> list[dict[tuple, Resonance]]:
@@ -440,12 +510,16 @@ class MultiChain(DecayChain):
 
     @property
     def chain_function(self) -> Callable:
-        """Returns f(h0, lambdas, arguments, momenta), summed over all constituent chains."""
-        def f(h0, lambdas: dict, arguments: dict, momenta: dict):
-            return sum(
-                chain.chain_function(h0, lambdas, arguments, momenta)
+        """Returns f(h0, lambdas, arguments, momenta, cache=None), summed over all constituent chains."""
+        def f(h0, lambdas: dict, arguments: dict, momenta: dict, cache: dict | None = None):
+            # All chains share the same topology (enforced in __init__), so
+            # helicity_angles(momenta) is identical for every one of them --
+            # compute it once instead of once per resonance hypothesis.
+            helicity_angles = self.topology.helicity_angles(momenta=momenta, convention=self.convention)
+            return _stack_sum([
+                chain._amplitude_for_lambdas(h0, lambdas, arguments, momenta, helicity_angles, cache=cache)
                 for chain in self.chains
-            )
+            ])
         return f
     
     @property
@@ -473,13 +547,17 @@ class MultiChain(DecayChain):
             if any(set(dtcs[0].keys()) != set(dtc.keys()) for dtc in dtcs):
                 raise ValueError("Keys of the dicts do not match")
             return {
-                key: sum(dtc[key] for dtc in dtcs)
+                key: _stack_sum([dtc[key] for dtc in dtcs])
                 for key in dtcs[0].keys()
             }
 
-        def matrix(h0, arguments: dict, momenta: dict):
+        def matrix(h0, arguments: dict, momenta: dict, cache: dict | None = None):
+            # All chains share the same topology (enforced in __init__), so
+            # helicity_angles(momenta) is identical for every one of them --
+            # compute it once instead of once per resonance hypothesis.
+            helicity_angles = self.topology.helicity_angles(momenta=momenta, convention=self.convention)
             return dict_sum(
-                *[chain.matrix(h0, arguments, momenta)
+                *[chain._matrix_for_angles(h0, arguments, momenta, helicity_angles, cache=cache)
                 for chain in self.chains]
             )
         return matrix
@@ -543,9 +621,14 @@ class AlignedMultiChain(MultiChain):
         Wigner D-matrices computed fresh from momenta on every call.
         """
         m = self.matrix
-        def f(h0, arguments: dict, momenta: dict):
-            matrix = m(h0, arguments, momenta)
-            wigner_rotation = self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention)
+        def f(h0, arguments: dict, momenta: dict, cache: dict | None = None):
+            matrix = m(h0, arguments, momenta, cache=cache)
+            # relative_wigner_angles depends only on (topology, momenta), not on
+            # h0 -- cache it too so it isn't recomputed on every h0 iteration.
+            wigner_rotation = _cached(
+                cache, (id(self), "wigner_rotation"),
+                lambda: self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention),
+            )
             return {
                 self.to_tuple(lambdas): sum(
                     matrix[self.to_tuple(lambdas_)]
