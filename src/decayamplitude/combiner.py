@@ -147,18 +147,25 @@ class ChainCombiner:
         if static_momenta is not None:
             self.enable_static_momenta(static_momenta)
 
-            def f(arguments: dict):
-                # Momenta-only lookups are already served by self.momenta_cache
-                # (enabled above, shared with every aligned chain); this fresh
-                # per-call dict is only for h0_independent_terms, which must
-                # stay scoped to this call since it bakes in `arguments`.
-                cache: dict = {}
-                return sum(
-                    abs(v)**2
-                    for h0 in self.root_resonance.quantum_numbers.angular.projections()
-                    for v in self.combined_matrix(h0, arguments, static_momenta, cache=cache).values()
-                )
+        def f(arguments: dict):
+            # Momenta-only lookups (helicity angles, masses, alignment
+            # rotations) are served by self.momenta_cache when static_momenta
+            # is enabled, or recomputed per call otherwise -- either way this
+            # closure doesn't need to know which. `cache` is only for
+            # h0_independent_terms, which must stay scoped to this call since
+            # it bakes in `arguments`; sharing it across the h0 loop below
+            # reuses the h0-independent parts of the computation (everything
+            # below the top Wigner-D rotation, see DecayChainNode.amplitude)
+            # instead of redoing them from scratch per h0.
+            momenta = static_momenta if static_momenta is not None else arguments.pop("momenta")
+            cache: dict = {}
+            return sum(
+                abs(v)**2
+                for h0 in self.root_resonance.quantum_numbers.angular.projections()
+                for v in self.combined_matrix(h0, arguments, momenta, cache=cache).values()
+            )
 
+        if static_momenta is not None:
             func, argnames = _create_function(self.resonance_params, ls_couplings, f, complex_couplings=complex_couplings)
             # h0 is only ever a Python-level loop variable here (looped over
             # above, never a function argument), so unlike polarized_amplitude/
@@ -167,20 +174,6 @@ class ChainCombiner:
             func = _no_momenta_guard(func)
             _warmup(func, argnames)
             return func, argnames
-
-        def f(arguments: dict):
-            momenta = arguments.pop("momenta")
-            # One cache shared across all h0 values: everything below the top
-            # Wigner-D rotation at every node is independent of h0 (see
-            # DecayChainNode.amplitude), so it only needs to be computed on the
-            # first h0 and is reused for the rest instead of being redone from
-            # scratch per h0.
-            cache: dict = {}
-            return sum(
-                abs(v)**2
-                for h0 in self.root_resonance.quantum_numbers.angular.projections()
-                for v in self.combined_matrix(h0, arguments, momenta, cache=cache).values()
-            )
 
         names = ["momenta"] + self.resonance_params
         return _create_function(names, ls_couplings, f, complex_couplings=complex_couplings)
@@ -200,12 +193,14 @@ class ChainCombiner:
         if static_momenta is not None:
             self.enable_static_momenta(static_momenta)
 
-            def fun(arguments: dict):
-                h0 = arguments.pop("h0")
-                lambdas = {n: arguments.pop(k) for k, n in zip(final_state_lambdas, sorted_final_state_nodes)}
-                cache: dict = {}
-                return self.combined_function(h0, lambdas, arguments, static_momenta, cache=cache)
+        def fun(arguments: dict):
+            momenta = static_momenta if static_momenta is not None else arguments.pop("momenta")
+            h0 = arguments.pop("h0")
+            lambdas = {n: arguments.pop(k) for k, n in zip(final_state_lambdas, sorted_final_state_nodes)}
+            cache: dict = {}
+            return self.combined_function(h0, lambdas, arguments, momenta, cache=cache)
 
+        if static_momenta is not None:
             names = ["h0", *final_state_lambdas]
             func, argnames = _create_function(names + self.resonance_params, ls_couplings, fun, complex_couplings=complex_couplings)
             # h0 and each h_<n> flow into wigner_capital_d's underlying
@@ -227,12 +222,6 @@ class ChainCombiner:
             _warmup(func, argnames, overrides=warmup_overrides)
             return func, ["h0", *final_state_lambdas], argnames[len(final_state_lambdas) + 1:]
 
-        def fun(arguments: dict):
-            momenta = arguments.pop("momenta")
-            h0 = arguments.pop("h0")
-            lambdas = {n: arguments.pop(k) for k, n in zip(final_state_lambdas, sorted_final_state_nodes)}
-            return self.combined_function(h0, lambdas, arguments, momenta)
-
         names = ["momenta", "h0", *final_state_lambdas]
         func, argnames = _create_function(names + self.resonance_params, ls_couplings, fun, complex_couplings=complex_couplings)
         return func, ["h0", *final_state_lambdas], argnames[len(final_state_lambdas) + 2:]
@@ -249,11 +238,13 @@ class ChainCombiner:
         if static_momenta is not None:
             self.enable_static_momenta(static_momenta)
 
-            def fun(arguments: dict):
-                h0 = arguments["h0"]
-                cache: dict = {}
-                return self.combined_matrix(h0, arguments, static_momenta, cache=cache)
+        def fun(arguments: dict):
+            momenta = static_momenta if static_momenta is not None else arguments.pop("momenta")
+            h0 = arguments["h0"]
+            cache: dict = {}
+            return self.combined_matrix(h0, arguments, momenta, cache=cache)
 
+        if static_momenta is not None:
             names = ["h0"]
             func, argnames = _create_function(names + self.resonance_params, ls_couplings, fun, complex_couplings=complex_couplings)
             # h0 flows into wigner_capital_d's underlying _wigner_d_coefficients,
@@ -266,11 +257,6 @@ class ChainCombiner:
             warmup_overrides = {"h0": self.root_resonance.quantum_numbers.angular.projections(return_int=True)[0]}
             _warmup(func, argnames, overrides=warmup_overrides)
             return func, argnames
-
-        def fun(arguments: dict):
-            momenta = arguments.pop("momenta")
-            h0 = arguments["h0"]
-            return self.combined_matrix(h0, arguments, momenta)
 
         names = ["momenta", "h0"]
         return _create_function(names + self.resonance_params, ls_couplings, fun, complex_couplings=complex_couplings)

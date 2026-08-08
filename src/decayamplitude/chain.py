@@ -155,6 +155,37 @@ def _node_mass_cache_entries(nodes, momenta):
         if not node.final_state
     }
 
+
+def _node_wigner_d_cache_entries(nodes, helicity_angles):
+    """Build {(id(node), "wigner_d", h0, m_diff): conj(wigner_capital_d(...))}
+    entries for every non-final-state node and every (h0, m_diff) pair its own
+    amplitude recursion can call wigner_capital_d with (see the tail of
+    DecayChainNode.amplitude). h0, m_diff and J2 are always plain Python ints
+    at trace time regardless of mode (driven by Python-level loops /
+    static_argnums, never JAX tracers) -- the angles are the only piece that
+    need momenta to be resolved, so once helicity_angles is a concrete value
+    this whole per-node Wigner-D factor can be precomputed eagerly instead of
+    relying on XLA to fold it during compilation. Shared by
+    DecayChain/MultiChain._static_cache."""
+    entries = {}
+    for node in nodes:
+        if node.final_state:
+            continue
+        angles = helicity_angles[node.decay_tuple]
+        phi, theta = angles.phi_rf, angles.theta_rf
+        psi = 0 if node.convention == "helicity" else -phi
+        J2 = node.quantum_numbers.angular.value2
+        d1, d2 = node.daughters
+        m_diffs = {
+            h1 - h2
+            for h1 in d1.quantum_numbers.projections(return_int=True)
+            for h2 in d2.quantum_numbers.projections(return_int=True)
+        }
+        for h0 in node.quantum_numbers.projections(return_int=True):
+            for m_diff in m_diffs:
+                entries[(id(node), "wigner_d", h0, m_diff)] = np.conj(wigner_capital_d(phi, theta, psi, J2, h0, m_diff))
+    return entries
+
 class DecayChainNode:
     """
     Class to represent a node in the decay chain. This utilizes the Node class from decayangle. 
@@ -379,7 +410,11 @@ class DecayChainNode:
                     cache[cache_key] = h0_independent_terms
 
             for m_diff, term in h0_independent_terms:
-                yield term * np.conj(wigner_capital_d(phi, theta, psi, J2, h0, m_diff))
+                d_factor = _momenta_cached(
+                    self.momenta_cache, cache, (id(self), "wigner_d", h0, m_diff),
+                    lambda: np.conj(wigner_capital_d(phi, theta, psi, J2, h0, m_diff)),
+                )
+                yield term * d_factor
 
 class DecayChain:
     """
@@ -469,15 +504,20 @@ class DecayChain:
     def _static_cache(self, momenta) -> dict:
         """Eagerly (outside of any jax.jit trace) compute every momenta-only
         cache entry this chain's amplitude computation can use: helicity_angles
-        for its topology, and masses for every non-final-state node. Used by
-        the `static_momenta` mode of the creator functions (unpolarized_amplitude
+        for its topology, masses for every non-final-state node, and each
+        such node's own per-(h0, m_diff) Wigner-D factors. Used by the
+        `static_momenta` mode of the creator functions (unpolarized_amplitude
         etc.) so those quantities are baked in as concrete values instead of
-        being recomputed from a traced momenta argument on every call -- see
-        _cached and _node_mass_cache_entries for the matching lookup keys.
+        being recomputed (or, for the Wigner-D factors, XLA-folded) from a
+        traced momenta argument on every call -- see _cached,
+        _node_mass_cache_entries and _node_wigner_d_cache_entries for the
+        matching lookup keys.
         """
+        helicity_angles = self.topology.helicity_angles(momenta=momenta, convention=self.convention)
         return {
-            (id(self.topology), "helicity_angles"): self.topology.helicity_angles(momenta=momenta, convention=self.convention),
+            (id(self.topology), "helicity_angles"): helicity_angles,
             **_node_mass_cache_entries(self.nodes, momenta),
+            **_node_wigner_d_cache_entries(self.nodes, helicity_angles),
         }
 
     def enable_static_momenta(self, momenta):
@@ -562,18 +602,21 @@ class DecayChain:
         if static_momenta is not None:
             self.enable_static_momenta(static_momenta)
 
-            def f(arguments: dict):
-                # Momenta-only lookups (helicity_angles, masses) are already
-                # served by self.momenta_cache (enabled above); this fresh
-                # per-call dict is only for h0_independent_terms, which must
-                # stay scoped to this call since it bakes in `arguments`.
-                cache: dict = {}
-                return sum(
-                    abs(v)**2
-                    for h0 in self.root_resonance.quantum_numbers.angular.projections()
-                    for v in self.matrix(h0, arguments, static_momenta, cache=cache).values()
-                )
+        def f(arguments: dict):
+            # Momenta-only lookups (helicity_angles, masses) are served by
+            # self.momenta_cache when static_momenta is enabled, or
+            # recomputed per call otherwise. `cache` is only for
+            # h0_independent_terms, which must stay scoped to this call since
+            # it bakes in `arguments`.
+            momenta = static_momenta if static_momenta is not None else arguments.pop("momenta")
+            cache: dict = {}
+            return sum(
+                abs(v)**2
+                for h0 in self.root_resonance.quantum_numbers.angular.projections()
+                for v in self.matrix(h0, arguments, momenta, cache=cache).values()
+            )
 
+        if static_momenta is not None:
             func, argnames = _create_function(self.resonance_params, ls_couplings, f, complex_couplings=complex_couplings)
             # h0 is only ever a Python-level loop variable here, never a
             # function argument, so no static_argnums are needed for jit-safety.
@@ -582,14 +625,6 @@ class DecayChain:
             _warmup(func, argnames)
             return func, argnames
 
-        def f(arguments: dict):
-            momenta = arguments.pop("momenta")
-            cache: dict = {}
-            return sum(
-                abs(v)**2
-                for h0 in self.root_resonance.quantum_numbers.angular.projections()
-                for v in self.matrix(h0, arguments, momenta, cache=cache).values()
-            )
         return _create_function(["momenta"] + self.resonance_params, ls_couplings, f, complex_couplings=complex_couplings)
 
 class AlignedChain(DecayChain):
@@ -749,15 +784,17 @@ class MultiChain(DecayChain):
         self.final_state_qn = final_state_qn
 
     def _static_cache(self, momenta) -> dict:
-        """Like DecayChain._static_cache, but masses are precomputed for every
-        non-final-state node across EVERY sibling chain in self.chains (each
-        resonance hypothesis has its own node tree), not just self.chains[0]'s.
-        helicity_angles is still computed once, since all siblings share the
-        same topology.
+        """Like DecayChain._static_cache, but masses and per-node Wigner-D
+        factors are precomputed for every non-final-state node across EVERY
+        sibling chain in self.chains (each resonance hypothesis has its own
+        node tree), not just self.chains[0]'s. helicity_angles is still
+        computed once, since all siblings share the same topology.
         """
-        cache = {(id(self.topology), "helicity_angles"): self.topology.helicity_angles(momenta=momenta, convention=self.convention)}
+        helicity_angles = self.topology.helicity_angles(momenta=momenta, convention=self.convention)
+        cache = {(id(self.topology), "helicity_angles"): helicity_angles}
         for chain in self.chains:
             cache.update(_node_mass_cache_entries(chain.nodes, momenta))
+            cache.update(_node_wigner_d_cache_entries(chain.nodes, helicity_angles))
         return cache
 
     @property
