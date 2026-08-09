@@ -1,4 +1,4 @@
-from decayamplitude.chain import DecayChain, AlignedChain, MultiChain, AlignedMultiChain, MomentaCache
+from decayamplitude.chain import DecayChain, AlignedChain, MultiChain, AlignedMultiChain
 from typing import Callable
 from decayamplitude.utils import _create_function, _no_momenta_guard, _warmup
 import jax
@@ -39,40 +39,6 @@ class ChainCombiner:
         return cache
 
     @property
-    def momenta_cache(self) -> MomentaCache:
-        # ChainCombiner has no node tree of its own; "the" combiner-level
-        # cache is whichever the reference chain has (see the setter for how
-        # the reference and every aligned chain end up sharing one).
-        return self.reference.momenta_cache
-
-    @momenta_cache.setter
-    def momenta_cache(self, value: MomentaCache):
-        # reference and each aligned chain were built independently (each
-        # with its own momenta_cache instance), so unifying them needs an
-        # explicit cascade here -- each chain's own setter then mutates its
-        # own shared instance in place, reaching that chain's whole node
-        # tree (and, for a MultiChain, every sibling) with no further cascade.
-        self.reference.momenta_cache = value
-        for aligned in self.aligned_chains:
-            aligned.momenta_cache = value
-
-    def enable_static_momenta(self, momenta):
-        """Precompute and enable the object-level momenta_cache shared by the
-        reference chain and every aligned chain, for a fixed momenta set --
-        see DecayChain.enable_static_momenta, which this mirrors at the
-        combiner level. Used by the `static_momenta` mode of
-        unpolarized_amplitude/polarized_amplitude/matrix_function.
-
-        NOTE: mutates shared state -- see DecayChain.enable_static_momenta
-        for the invariant that makes this safe (creator functions must warm
-        up before returning).
-        """
-        cache = MomentaCache()
-        cache.data = self._static_cache(momenta)
-        cache.enabled = True
-        self.momenta_cache = cache
-
-    @property
     def single_chains(self) -> list[DecayChain]:
         """Flattens the aligned chains and multi chains into a list of single (non-Multi) chains."""
         chains = [self.reference] if not hasattr(self.reference, "chains") else list(self.reference.chains)
@@ -86,17 +52,17 @@ class ChainCombiner:
     @property
     def combined_function(self):
         """Returns a function f(h0, lambdas, arguments, momenta, cache=None) that sums the aligned amplitudes of all chains."""
-        def f(h0, lambdas: dict, arguments: dict, momenta: dict, cache: dict | None = None):
+        def f(h0, lambdas: dict, arguments: dict, momenta: dict, cache: dict | None = None, momenta_cache: dict | None = None):
             amplitudes = [
-                chain.aligned_matrix(h0, arguments, momenta, cache=cache)[tuple(lambdas[k] for k in sorted(lambdas.keys()))]
+                chain.aligned_matrix(h0, arguments, momenta, cache=cache, momenta_cache=momenta_cache)[tuple(lambdas[k] for k in sorted(lambdas.keys()))]
                 for chain in self.aligned_chains
             ]
-            return sum(amplitudes) + self.reference.chain_function(h0, lambdas, arguments, momenta, cache=cache)
+            return sum(amplitudes) + self.reference.chain_function(h0, lambdas, arguments, momenta, cache=cache, momenta_cache=momenta_cache)
         return f
 
     @property
     def combined_matrix(self) -> Callable:
-        """Returns a function f(h0, arguments, momenta, cache=None) that sums the aligned helicity matrices of all chains.
+        """Returns a function f(h0, arguments, momenta, cache=None, momenta_cache=None) that sums the aligned helicity matrices of all chains.
 
         `cache`, if given, is a dict shared across multiple calls that only
         differ in h0 (see DecayChainNode.amplitude): it lets the h0-independent
@@ -104,9 +70,9 @@ class ChainCombiner:
         of being recomputed from scratch on every h0 (see unpolarized_amplitude,
         which is the caller that actually loops over h0 and populates this).
         """
-        def matrix(h0, arguments: dict, momenta: dict, cache: dict | None = None) -> dict:
-            matrices = [chain.aligned_matrix(h0, arguments, momenta, cache=cache) for chain in self.aligned_chains]
-            matrices.append(self.reference.matrix(h0, arguments, momenta, cache=cache))
+        def matrix(h0, arguments: dict, momenta: dict, cache: dict | None = None, momenta_cache: dict | None = None) -> dict:
+            matrices = [chain.aligned_matrix(h0, arguments, momenta, cache=cache, momenta_cache=momenta_cache) for chain in self.aligned_chains]
+            matrices.append(self.reference.matrix(h0, arguments, momenta, cache=cache, momenta_cache=momenta_cache))
             return {
                 key: sum(m[key] for m in matrices)
                 for key in matrices[0].keys()
@@ -144,13 +110,15 @@ class ChainCombiner:
         if self.root_resonance is None:
             raise ValueError(f"The root resonance must be the same for all chains! Root = {self.reference.topology.root}.")
 
-        if static_momenta is not None:
-            self.enable_static_momenta(static_momenta)
+        # Built fresh per call and closed over below -- never stored on self --
+        # so this build's momenta_cache can't affect any other function (static
+        # or not) built from this combiner, or from any chain it wraps.
+        momenta_cache = self._static_cache(static_momenta) if static_momenta is not None else None
 
         def f(arguments: dict):
             # Momenta-only lookups (helicity angles, masses, alignment
-            # rotations) are served by self.momenta_cache when static_momenta
-            # is enabled, or recomputed per call otherwise -- either way this
+            # rotations) are served by momenta_cache when static_momenta is
+            # given, or recomputed per call otherwise -- either way this
             # closure doesn't need to know which. `cache` is only for
             # h0_independent_terms, which must stay scoped to this call since
             # it bakes in `arguments`; sharing it across the h0 loop below
@@ -162,7 +130,7 @@ class ChainCombiner:
             return sum(
                 abs(v)**2
                 for h0 in self.root_resonance.quantum_numbers.angular.projections()
-                for v in self.combined_matrix(h0, arguments, momenta, cache=cache).values()
+                for v in self.combined_matrix(h0, arguments, momenta, cache=cache, momenta_cache=momenta_cache).values()
             )
 
         if static_momenta is not None:
@@ -190,15 +158,17 @@ class ChainCombiner:
         sorted_final_state_nodes = sorted([n.node.value for n in self.reference.final_state_nodes])
         final_state_lambdas = sorted([f"h_{n}" for n in sorted_final_state_nodes])
 
-        if static_momenta is not None:
-            self.enable_static_momenta(static_momenta)
+        # See unpolarized_amplitude: built fresh per call, never stored on
+        # self, so this build can't affect any other function built from
+        # this combiner.
+        momenta_cache = self._static_cache(static_momenta) if static_momenta is not None else None
 
         def fun(arguments: dict):
             momenta = static_momenta if static_momenta is not None else arguments.pop("momenta")
             h0 = arguments.pop("h0")
             lambdas = {n: arguments.pop(k) for k, n in zip(final_state_lambdas, sorted_final_state_nodes)}
             cache: dict = {}
-            return self.combined_function(h0, lambdas, arguments, momenta, cache=cache)
+            return self.combined_function(h0, lambdas, arguments, momenta, cache=cache, momenta_cache=momenta_cache)
 
         if static_momenta is not None:
             names = ["h0", *final_state_lambdas]
@@ -235,14 +205,16 @@ class ChainCombiner:
         take momenta at all, and is pre-compiled before being returned. See
         unpolarized_amplitude for details.
         """
-        if static_momenta is not None:
-            self.enable_static_momenta(static_momenta)
+        # See unpolarized_amplitude: built fresh per call, never stored on
+        # self, so this build can't affect any other function built from
+        # this combiner.
+        momenta_cache = self._static_cache(static_momenta) if static_momenta is not None else None
 
         def fun(arguments: dict):
             momenta = static_momenta if static_momenta is not None else arguments.pop("momenta")
             h0 = arguments["h0"]
             cache: dict = {}
-            return self.combined_matrix(h0, arguments, momenta, cache=cache)
+            return self.combined_matrix(h0, arguments, momenta, cache=cache, momenta_cache=momenta_cache)
 
         if static_momenta is not None:
             names = ["h0"]

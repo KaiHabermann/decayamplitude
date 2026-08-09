@@ -97,44 +97,21 @@ def _cached(cache, key, compute):
     return cache[key]
 
 
-class MomentaCache:
-    """Object-level cache for momenta-only quantities (helicity angles,
-    per-node masses, inter-topology alignment rotation data). Shared by
-    reference across an entire chain's node tree, and (once combined) across
-    every chain in a ChainCombiner -- see DecayChain.momenta_cache and
-    ChainCombiner.momenta_cache -- so populating/enabling it once makes the
-    data visible everywhere without threading it through every function call.
-
-    Deliberately separate from the `cache` parameter still threaded through
-    matrix/chain_function/aligned_matrix/amplitude: that one memoizes
-    fit-parameter-dependent terms (h0_independent_terms) and MUST stay
-    freshly created per call, or stale coupling values could leak across fit
-    iterations with different parameters. See DecayChain.enable_static_momenta
-    and _momenta_cached for how the two coexist.
-    """
-    def __init__(self):
-        self.data = {}
-        self.enabled = False
-
-    def __contains__(self, key):
-        return key in self.data
-
-    def __getitem__(self, key):
-        return self.data[key]
-
-    def __setitem__(self, key, value):
-        self.data[key] = value
-
-
 def _momenta_cached(momenta_cache, cache, key, compute):
     """Look up a momenta-only value (helicity angles, masses, alignment
-    rotation data): prefer the object-level `momenta_cache` if enabled (valid
-    across many calls -- e.g. static_momenta mode), otherwise fall back to
-    the per-call `cache` parameter (valid only within the current call --
-    the existing, unchanged default-mode dedup from earlier optimization
-    cycles).
+    rotation data): prefer `momenta_cache` if given -- a plain dict, freshly
+    built and passed in for exactly one static_momenta build (see
+    DecayChain._static_cache) -- otherwise fall back to the per-call `cache`
+    parameter (valid only within the current call -- the existing, unchanged
+    default-mode dedup from earlier optimization cycles).
+
+    `momenta_cache` is passed as an explicit call-time argument (like
+    `cache`), never stored on a node/chain, specifically so that enabling
+    static_momenta for one build cannot affect any other function -- static
+    or not -- built from the same chain/combiner: each build gets its own
+    dict or None, and nothing shared is ever mutated after construction.
     """
-    if momenta_cache.enabled:
+    if momenta_cache is not None:
         return _cached(momenta_cache, key, compute)
     return _cached(cache, key, compute)
 
@@ -193,7 +170,7 @@ class DecayChainNode:
     """
 
 
-    def __init__(self, node: Node, resonances: dict[tuple, Resonance] | ResonanceDict, final_state_qn: dict[int, QN | Particle], topology: Topology, convention: Literal["helicity", "minus_phi"] = "helicity", momenta_cache: "MomentaCache | None" = None) -> None:
+    def __init__(self, node: Node, resonances: dict[tuple, Resonance] | ResonanceDict, final_state_qn: dict[int, QN | Particle], topology: Topology, convention: Literal["helicity", "minus_phi"] = "helicity") -> None:
         """
         Initializes a DecayChainNode object. The object will contain a resonance and a topology.
 
@@ -208,15 +185,7 @@ class DecayChainNode:
             The topology of the decay chain. This is a topology as defined in `decayangle`
         convention: str
             The convention of the decay chain. This is either "helicity" or "minus_phi". The default is "helicity"
-        momenta_cache: MomentaCache | None
-            Object-level cache for momenta-only quantities (see MomentaCache).
-            If not given, this node creates its own (disabled) one. Threaded
-            into daughter construction below so the whole recursive tree
-            shares a single instance from the moment it's built -- see
-            DecayChain.momenta_cache for how that instance later gets
-            populated/enabled.
         """
-        self.momenta_cache = momenta_cache if momenta_cache is not None else MomentaCache()
         # this check needs to happen first to avoid errors
 
         if node.value not in topology.nodes:
@@ -244,7 +213,7 @@ class DecayChainNode:
         self.convention = convention
             
         self.daughters = [
-                    DecayChainNode(daughter, resonances, self.final_state_qn, topology, convention=self.convention, momenta_cache=self.momenta_cache)
+                    DecayChainNode(daughter, resonances, self.final_state_qn, topology, convention=self.convention)
                     for daughter in self.node.daughters
             ]
         
@@ -344,7 +313,7 @@ class DecayChainNode:
         raise ValueError(f"Convention {self.convention} not known")
 
     @convert_angular
-    def amplitude(self, h0: Angular | int, lambdas: dict, arguments: dict, momenta: dict, helicity_angles: dict, cache: dict | None = None):
+    def amplitude(self, h0: Angular | int, lambdas: dict, arguments: dict, momenta: dict, helicity_angles: dict, cache: dict | None = None, momenta_cache: dict | None = None):
         """
         The amplitude of a single node given the helicity of the decaying particle.
         Recursively computes daughter amplitudes.
@@ -370,6 +339,13 @@ class DecayChainNode:
             reused across h0 values instead of being recomputed from scratch on
             every h0 iteration. Pass None (the default) to disable and get the
             original per-call behaviour.
+        momenta_cache: dict | None
+            Optional cache of momenta-only quantities (masses, Wigner-D
+            factors), precomputed once for a fixed momenta set -- see
+            DecayChain._static_cache and the `static_momenta` mode of
+            unpolarized_amplitude/matrix_function/polarized_amplitude. Passed
+            explicitly per call (never stored on the node) so a static build
+            can never affect any other function built from the same chain.
         """
         if self.final_state:
             yield 1.
@@ -389,21 +365,21 @@ class DecayChainNode:
 
                 # Masses depend only on momenta (never on arguments/h0), so they
                 # get their own cache slot separate from h0_independent_terms:
-                # self.momenta_cache, if enabled (static_momenta mode), lets
-                # this be prepopulated so mass_from_node is never called at
-                # trace time at all -- see _momenta_cached. h0_independent_terms
-                # itself must still always be recomputed fresh whenever
-                # arguments change, hence the separate `cache` parameter below.
+                # momenta_cache, if given (static_momenta mode), lets this be
+                # prepopulated so mass_from_node is never called at trace time
+                # at all -- see _momenta_cached. h0_independent_terms itself
+                # must still always be recomputed fresh whenever arguments
+                # change, hence the separate `cache` parameter below.
                 mass, d1_mass, d2_mass = _momenta_cached(
-                    self.momenta_cache, cache, (id(self), "masses"),
+                    momenta_cache, cache, (id(self), "masses"),
                     lambda: (mass_from_node(self.node, momenta), mass_from_node(d1.node, momenta), mass_from_node(d2.node, momenta)),
                 )
 
                 h0_independent_terms = []
                 for h1 in d1_helicities:
                     for h2 in d2_helicities:
-                        for A_1 in d1.amplitude(h1, lambdas, arguments, momenta, helicity_angles, cache=cache):
-                            for A_2 in d2.amplitude(h2, lambdas, arguments, momenta, helicity_angles, cache=cache):
+                        for A_1 in d1.amplitude(h1, lambdas, arguments, momenta, helicity_angles, cache=cache, momenta_cache=momenta_cache):
+                            for A_2 in d2.amplitude(h2, lambdas, arguments, momenta, helicity_angles, cache=cache, momenta_cache=momenta_cache):
                                 coupling = self.resonance.amplitude(h1, h2, arguments, mass, d1_mass, d2_mass)
                                 h0_independent_terms.append((h1 - h2, A_1 * A_2 * coupling * (J2 + 1)**0.5))
                 if cache_key is not None:
@@ -411,7 +387,7 @@ class DecayChainNode:
 
             for m_diff, term in h0_independent_terms:
                 d_factor = _momenta_cached(
-                    self.momenta_cache, cache, (id(self), "wigner_d", h0, m_diff),
+                    momenta_cache, cache, (id(self), "wigner_d", h0, m_diff),
                     lambda: np.conj(wigner_capital_d(phi, theta, psi, J2, h0, m_diff)),
                 )
                 yield term * d_factor
@@ -444,52 +420,38 @@ class DecayChain:
         ]
         self.helicity_tuples = helicities
         self.resonance_list = list(resonances.values())
-        # Created once, threaded into the node tree below (nodes/root), so
-        # every node in this chain shares one instance from construction --
-        # see the `momenta_cache` property for how it later gets
-        # populated/enabled without needing to touch the nodes again.
-        self._momenta_cache = MomentaCache()
+
+    @cached_property
+    def root(self):
+        return DecayChainNode(self.topology.root, self.resonances, self.final_state_qn, self.topology, self.convention)
 
     @cached_property
     def nodes(self):
-        # The node tree only depends on (topology, resonances, final_state_qn,
-        # convention), all fixed at construction time, so it is safe -- and,
-        # since amplitude() rebuilds it from scratch on every access otherwise,
-        # important for trace time -- to build it once and reuse it.
-        return list(
-            DecayChainNode(node, self.resonances, self.final_state_qn, self.topology, self.convention, momenta_cache=self._momenta_cache)
-            for node in self.topology.nodes.values()
-        )
+        # Walk self.root's own tree instead of building a second, independent
+        # DecayChainNode tree from topology.nodes.values(): the amplitude
+        # recursion (_amplitude_for_lambdas -> self.root.amplitude(...)) only
+        # ever touches root's tree, and _static_cache's per-node cache keys
+        # are id(node)-based, so nodes returned here must be object-identical
+        # to what amplitude() actually looks up, not merely equal.
+        result = []
+        stack = [self.root]
+        while stack:
+            node = stack.pop()
+            result.append(node)
+            stack.extend(node.daughters)
+        return result
 
     @property
     def final_state_nodes(self) -> list[DecayChainNode]:
         return [node for node in self.nodes if node.final_state]
 
-    @property
-    def momenta_cache(self) -> MomentaCache:
-        return self._momenta_cache
-
-    @momenta_cache.setter
-    def momenta_cache(self, value: MomentaCache):
-        # Mutate the existing shared object's contents rather than replacing
-        # the reference: every node in self.nodes/self.root already holds a
-        # reference to self._momenta_cache (threaded in at construction), so
-        # this update is instantly visible throughout the tree with no
-        # separate per-node cascade needed.
-        self._momenta_cache.data = value.data
-        self._momenta_cache.enabled = value.enabled
-
-    @cached_property
-    def root(self):
-        return DecayChainNode(self.topology.root, self.resonances, self.final_state_qn, self.topology, self.convention, momenta_cache=self._momenta_cache)
-
-    def _amplitude_for_lambdas(self, h0, lambdas: dict, arguments: dict, momenta: dict, helicity_angles: dict, cache: dict | None = None):
+    def _amplitude_for_lambdas(self, h0, lambdas: dict, arguments: dict, momenta: dict, helicity_angles: dict, cache: dict | None = None, momenta_cache: dict | None = None):
         """Amplitude for one set of final-state helicities, given precomputed helicity_angles."""
-        amplitudes = list(self.root.amplitude(h0, lambdas, arguments, momenta, helicity_angles, cache=cache))
+        amplitudes = list(self.root.amplitude(h0, lambdas, arguments, momenta, helicity_angles, cache=cache, momenta_cache=momenta_cache))
         prefactor = 1/(self.root.resonance.quantum_numbers.angular.value2 + 1)**0.5
         return prefactor * _stack_sum(amplitudes)
 
-    def _matrix_for_angles(self, h0, arguments: dict, momenta: dict, helicity_angles: dict, cache: dict | None = None) -> dict:
+    def _matrix_for_angles(self, h0, arguments: dict, momenta: dict, helicity_angles: dict, cache: dict | None = None, momenta_cache: dict | None = None) -> dict:
         """Full helicity matrix given precomputed helicity_angles.
 
         Used internally by MultiChain to share one helicity_angles computation
@@ -497,7 +459,7 @@ class DecayChain:
         of every sibling recomputing it from momenta independently.
         """
         return {
-            tuple([lambdas[key] for key in self.final_state_keys]): self._amplitude_for_lambdas(h0, lambdas, arguments, momenta, helicity_angles, cache=cache)
+            tuple([lambdas[key] for key in self.final_state_keys]): self._amplitude_for_lambdas(h0, lambdas, arguments, momenta, helicity_angles, cache=cache, momenta_cache=momenta_cache)
             for lambdas in self.helicities
         }
 
@@ -511,7 +473,9 @@ class DecayChain:
         being recomputed (or, for the Wigner-D factors, XLA-folded) from a
         traced momenta argument on every call -- see _cached,
         _node_mass_cache_entries and _node_wigner_d_cache_entries for the
-        matching lookup keys.
+        matching lookup keys. Returns a plain dict, freshly built per call --
+        see unpolarized_amplitude for how it's passed in as the `momenta_cache`
+        argument of exactly one build, never stored on self.
         """
         helicity_angles = self.topology.helicity_angles(momenta=momenta, convention=self.convention)
         return {
@@ -520,49 +484,33 @@ class DecayChain:
             **_node_wigner_d_cache_entries(self.nodes, helicity_angles),
         }
 
-    def enable_static_momenta(self, momenta):
-        """Precompute and enable this chain's object-level momenta_cache for
-        a fixed momenta set (see MomentaCache and the momenta_cache property).
-        Used by the `static_momenta` mode of unpolarized_amplitude.
-
-        NOTE: mutates shared state. Calling this again on the same chain
-        overwrites the previous momenta's cached values -- safe only because
-        creator functions warm up (fully trace + compile) before returning,
-        so an earlier build's compiled function no longer reads this cache
-        by the time a later build starts.
-        """
-        cache = MomentaCache()
-        cache.data = self._static_cache(momenta)
-        cache.enabled = True
-        self.momenta_cache = cache
-
     @property
     def chain_function(self):
         """
-        Returns a function f(h0, lambdas, arguments, momenta, cache=None) -> complex amplitude
-        for a single set of helicities. See DecayChainNode.amplitude for `cache`.
+        Returns a function f(h0, lambdas, arguments, momenta, cache=None, momenta_cache=None) -> complex amplitude
+        for a single set of helicities. See DecayChainNode.amplitude for `cache`/`momenta_cache`.
         """
-        def f(h0, lambdas: dict, arguments: dict, momenta: dict, cache: dict | None = None):
+        def f(h0, lambdas: dict, arguments: dict, momenta: dict, cache: dict | None = None, momenta_cache: dict | None = None):
             helicity_angles = _momenta_cached(
-                self.momenta_cache, cache, (id(self.topology), "helicity_angles"),
+                momenta_cache, cache, (id(self.topology), "helicity_angles"),
                 lambda: self.topology.helicity_angles(momenta=momenta, convention=self.convention),
             )
-            return self._amplitude_for_lambdas(h0, lambdas, arguments, momenta, helicity_angles, cache=cache)
+            return self._amplitude_for_lambdas(h0, lambdas, arguments, momenta, helicity_angles, cache=cache, momenta_cache=momenta_cache)
         return f
 
     @property
     def matrix(self):
         """
-        Returns a function f(h0, arguments, momenta, cache=None) -> dict mapping
+        Returns a function f(h0, arguments, momenta, cache=None, momenta_cache=None) -> dict mapping
         final-state helicity tuples to their amplitude, covering all helicity
-        combinations. See DecayChainNode.amplitude for `cache`.
+        combinations. See DecayChainNode.amplitude for `cache`/`momenta_cache`.
         """
-        def matrix(h0, arguments: dict, momenta: dict, cache: dict | None = None):
+        def matrix(h0, arguments: dict, momenta: dict, cache: dict | None = None, momenta_cache: dict | None = None):
             helicity_angles = _momenta_cached(
-                self.momenta_cache, cache, (id(self.topology), "helicity_angles"),
+                momenta_cache, cache, (id(self.topology), "helicity_angles"),
                 lambda: self.topology.helicity_angles(momenta=momenta, convention=self.convention),
             )
-            return self._matrix_for_angles(h0, arguments, momenta, helicity_angles, cache=cache)
+            return self._matrix_for_angles(h0, arguments, momenta, helicity_angles, cache=cache, momenta_cache=momenta_cache)
         return matrix
     
     def generate_couplings(self):
@@ -599,21 +547,22 @@ class DecayChain:
         pre-compiled (warmed up) before being returned. See
         ChainCombiner.unpolarized_amplitude for the full rationale.
         """
-        if static_momenta is not None:
-            self.enable_static_momenta(static_momenta)
+        # Built fresh per call and closed over below -- never stored on self --
+        # so this build's momenta_cache can't affect any other function (static
+        # or not) built from this same chain, and vice versa.
+        momenta_cache = self._static_cache(static_momenta) if static_momenta is not None else None
 
         def f(arguments: dict):
             # Momenta-only lookups (helicity_angles, masses) are served by
-            # self.momenta_cache when static_momenta is enabled, or
-            # recomputed per call otherwise. `cache` is only for
-            # h0_independent_terms, which must stay scoped to this call since
-            # it bakes in `arguments`.
+            # momenta_cache when static_momenta is enabled, or recomputed per
+            # call otherwise. `cache` is only for h0_independent_terms, which
+            # must stay scoped to this call since it bakes in `arguments`.
             momenta = static_momenta if static_momenta is not None else arguments.pop("momenta")
             cache: dict = {}
             return sum(
                 abs(v)**2
                 for h0 in self.root_resonance.quantum_numbers.angular.projections()
-                for v in self.matrix(h0, arguments, momenta, cache=cache).values()
+                for v in self.matrix(h0, arguments, momenta, cache=cache, momenta_cache=momenta_cache).values()
             )
 
         if static_momenta is not None:
@@ -665,19 +614,19 @@ class AlignedChain(DecayChain):
         Wigner D-matrices computed fresh from momenta on every call.
         """
         m = self.matrix
-        def f(h0, arguments: dict, momenta: dict, cache: dict | None = None):
-            matrix = m(h0, arguments, momenta, cache=cache)
+        def f(h0, arguments: dict, momenta: dict, cache: dict | None = None, momenta_cache: dict | None = None):
+            matrix = m(h0, arguments, momenta, cache=cache, momenta_cache=momenta_cache)
             # relative_wigner_angles depends only on (topology, momenta), not on
             # h0 -- cache it too so it isn't recomputed on every h0 iteration.
             wigner_rotation = _momenta_cached(
-                self.momenta_cache, cache, (id(self), "wigner_rotation"),
+                momenta_cache, cache, (id(self), "wigner_rotation"),
                 lambda: self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention),
             )
             # Per-particle Wigner-D lookup table instead of recomputing
             # wigner_capital_d fresh for every (lambdas, lambdas_) tuple pair
             # below -- see _per_particle_alignment_factors.
             alignment_factors = _momenta_cached(
-                self.momenta_cache, cache, (id(self), "alignment_factors"),
+                momenta_cache, cache, (id(self), "alignment_factors"),
                 lambda: _per_particle_alignment_factors(self.final_state_qn, self.final_state_keys, wigner_rotation),
             )
             # The full (n_helicities, n_helicities) alignment matrix, h0-independent
@@ -685,7 +634,7 @@ class AlignedChain(DecayChain):
             # is built once as a matrix and applied via one contraction, rather
             # than combined per (lambdas, lambdas_) pair with a Python loop.
             rotation_matrix = _momenta_cached(
-                self.momenta_cache, cache, (id(self), "rotation_matrix"),
+                momenta_cache, cache, (id(self), "rotation_matrix"),
                 lambda: _alignment_rotation_matrix(self.helicities, self.final_state_keys, alignment_factors),
             )
             matrix_vec = np.stack([matrix[self.to_tuple(lambdas_)] for lambdas_ in self.helicities], axis=0)
@@ -798,36 +747,19 @@ class MultiChain(DecayChain):
         return cache
 
     @property
-    def momenta_cache(self) -> MomentaCache:
-        # MultiChain has no node tree of its own (like topology/nodes/root,
-        # it delegates); each sibling in self.chains owns and shares its own
-        # cache with its own node tree (see DecayChain.momenta_cache), so
-        # "the" MultiChain-level cache is whichever the first sibling has.
-        return self.chains[0].momenta_cache
-
-    @momenta_cache.setter
-    def momenta_cache(self, value: MomentaCache):
-        # Siblings were built independently (each with its own momenta_cache
-        # instance), so unifying them needs an explicit cascade here -- each
-        # sibling's own setter then mutates its own shared instance in place,
-        # reaching that sibling's whole node tree with no further cascade.
-        for chain in self.chains:
-            chain.momenta_cache = value
-
-    @property
     def chain_function(self) -> Callable:
-        """Returns f(h0, lambdas, arguments, momenta, cache=None), summed over all constituent chains."""
-        def f(h0, lambdas: dict, arguments: dict, momenta: dict, cache: dict | None = None):
+        """Returns f(h0, lambdas, arguments, momenta, cache=None, momenta_cache=None), summed over all constituent chains."""
+        def f(h0, lambdas: dict, arguments: dict, momenta: dict, cache: dict | None = None, momenta_cache: dict | None = None):
             # All chains share the same topology (enforced in __init__), so
             # helicity_angles(momenta) is identical for every one of them --
             # compute it once instead of once per resonance hypothesis, and
             # (via _cached) once per call rather than once per h0 too.
             helicity_angles = _momenta_cached(
-                self.momenta_cache, cache, (id(self.topology), "helicity_angles"),
+                momenta_cache, cache, (id(self.topology), "helicity_angles"),
                 lambda: self.topology.helicity_angles(momenta=momenta, convention=self.convention),
             )
             return _stack_sum([
-                chain._amplitude_for_lambdas(h0, lambdas, arguments, momenta, helicity_angles, cache=cache)
+                chain._amplitude_for_lambdas(h0, lambdas, arguments, momenta, helicity_angles, cache=cache, momenta_cache=momenta_cache)
                 for chain in self.chains
             ])
         return f
@@ -861,17 +793,17 @@ class MultiChain(DecayChain):
                 for key in dtcs[0].keys()
             }
 
-        def matrix(h0, arguments: dict, momenta: dict, cache: dict | None = None):
+        def matrix(h0, arguments: dict, momenta: dict, cache: dict | None = None, momenta_cache: dict | None = None):
             # All chains share the same topology (enforced in __init__), so
             # helicity_angles(momenta) is identical for every one of them --
             # compute it once instead of once per resonance hypothesis, and
             # (via _cached) once per call rather than once per h0 too.
             helicity_angles = _momenta_cached(
-                self.momenta_cache, cache, (id(self.topology), "helicity_angles"),
+                momenta_cache, cache, (id(self.topology), "helicity_angles"),
                 lambda: self.topology.helicity_angles(momenta=momenta, convention=self.convention),
             )
             return dict_sum(
-                *[chain._matrix_for_angles(h0, arguments, momenta, helicity_angles, cache=cache)
+                *[chain._matrix_for_angles(h0, arguments, momenta, helicity_angles, cache=cache, momenta_cache=momenta_cache)
                 for chain in self.chains]
             )
         return matrix
@@ -949,19 +881,19 @@ class AlignedMultiChain(MultiChain):
         Wigner D-matrices computed fresh from momenta on every call.
         """
         m = self.matrix
-        def f(h0, arguments: dict, momenta: dict, cache: dict | None = None):
-            matrix = m(h0, arguments, momenta, cache=cache)
+        def f(h0, arguments: dict, momenta: dict, cache: dict | None = None, momenta_cache: dict | None = None):
+            matrix = m(h0, arguments, momenta, cache=cache, momenta_cache=momenta_cache)
             # relative_wigner_angles depends only on (topology, momenta), not on
             # h0 -- cache it too so it isn't recomputed on every h0 iteration.
             wigner_rotation = _momenta_cached(
-                self.momenta_cache, cache, (id(self), "wigner_rotation"),
+                momenta_cache, cache, (id(self), "wigner_rotation"),
                 lambda: self.reference.relative_wigner_angles(self.topology, momenta, convention=self.convention),
             )
             # Per-particle Wigner-D lookup table instead of recomputing
             # wigner_capital_d fresh for every (lambdas, lambdas_) tuple pair
             # below -- see _per_particle_alignment_factors.
             alignment_factors = _momenta_cached(
-                self.momenta_cache, cache, (id(self), "alignment_factors"),
+                momenta_cache, cache, (id(self), "alignment_factors"),
                 lambda: _per_particle_alignment_factors(self.final_state_qn, self.final_state_keys, wigner_rotation),
             )
             # The full (n_helicities, n_helicities) alignment matrix, h0-independent
@@ -969,7 +901,7 @@ class AlignedMultiChain(MultiChain):
             # is built once as a matrix and applied via one contraction, rather
             # than combined per (lambdas, lambdas_) pair with a Python loop.
             rotation_matrix = _momenta_cached(
-                self.momenta_cache, cache, (id(self), "rotation_matrix"),
+                momenta_cache, cache, (id(self), "rotation_matrix"),
                 lambda: _alignment_rotation_matrix(self.helicities, self.final_state_keys, alignment_factors),
             )
             matrix_vec = np.stack([matrix[self.to_tuple(lambdas_)] for lambdas_ in self.helicities], axis=0)
@@ -979,8 +911,4 @@ class AlignedMultiChain(MultiChain):
                 for i, lambdas in enumerate(self.helicities)
             }
         return f
-
-
-
-
 
