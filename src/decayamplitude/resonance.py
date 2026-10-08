@@ -167,7 +167,7 @@ class Resonance:
         return self.__str__()
     
     @convert_angular
-    def helicity_from_ls(self, h0: Angular | int, h1: Angular | int, h2: Angular | int, couplings: dict[LSTuple, float], arguments: dict, mass, d1_mass, d2_mass):
+    def helicity_from_ls(self, h1: Angular | int, h2: Angular | int, couplings: dict[LSTuple, float], arguments: dict, mass, d1_mass, d2_mass):
         """
         This function translates from the ls basis into the helicity basis.
         The linehspae funcitons can depend on L and S.
@@ -176,10 +176,13 @@ class Resonance:
 
         Note:
             Wrapper convert_angular ensures, that inside the function only integes arrive as values for h.
+            The helicity of the resonance itself (h0) does not enter this
+            computation at all -- only the daughter helicities h1, h2 do, via
+            the Clebsch-Gordan coefficients -- so it is intentionally not a
+            parameter here. The resonance's own Wigner-D rotation (which is
+            where h0 actually matters) is applied by the caller.
 
         arguments:
-        h0: int
-            Helicity of the resonance
         h1: int
             Helicity of the first daughter
         h2: int
@@ -199,16 +202,31 @@ class Resonance:
         """
         q1, q2 = self.daughter_qn
         j1, j2 = q1.angular.value2, q2.angular.value2
+        j0_norm = (self.quantum_numbers.angular.value2 + 1) ** 0.5
 
-        return sum(
-            coupling *
-            self.lineshape(mass, l, s, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass)) *
-            (l + 1) ** 0.5 /
-            (self.quantum_numbers.angular.value2 + 1) ** 0.5 *
-            clebsch_gordan(j1, h1, j2, -h2, s, h1- h2) *
-            clebsch_gordan(l, 0, s, h1 - h2, self.quantum_numbers.angular.value2, h1 - h2)
-            for (l, s), coupling in couplings.items()
-        )
+        # coupling is a (possibly traced, possibly complex) fit parameter, so it
+        # has to stay part of the per-term array; the CG/sqrt(2l+1) factors are
+        # plain Python floats known at trace time and are kept as a separate
+        # static coefficient vector. Splitting them lets the reduction over LS
+        # terms be done as one stack + one jnp.sum instead of a Python-unrolled
+        # chain of multiplies/adds, which is what actually drives XLA compile
+        # time down for resonances with several LS terms (see wigner_small_d).
+        terms = []
+        coeffs = []
+        for (l, s), coupling in couplings.items():
+            coeffs.append(
+                (l + 1) ** 0.5 *
+                clebsch_gordan(j1, h1, j2, -h2, s, h1 - h2) *
+                clebsch_gordan(l, 0, s, h1 - h2, self.quantum_numbers.angular.value2, h1 - h2)
+            )
+            terms.append(coupling * self.lineshape(mass, l, s, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass)))
+
+        if len(terms) == 1:
+            return coeffs[0] * terms[0] / j0_norm
+
+        stacked = np.stack(terms, axis=0)
+        coeff_arr = np.asarray(coeffs, dtype=stacked.dtype).reshape((len(coeffs),) + (1,) * (stacked.ndim - 1))
+        return np.sum(coeff_arr * stacked, axis=0) / j0_norm
 
 
     def __construct_couplings(self, arguments:dict) -> dict[LSTuple, float]:
@@ -258,13 +276,21 @@ class Resonance:
         return arguments[self.id]["couplings"][(h1, h2)] * self.lineshape(mass, h1, h2, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass))
 
     @convert_angular
-    def amplitude(self, h0: Angular | int, h1: Angular | int, h2: Angular | int, arguments: dict, mass, d1_mass, d2_mass):
+    def amplitude(self, h1: Angular | int, h2: Angular | int, arguments: dict, mass, d1_mass, d2_mass):
+        """
+        The coupling factor for this resonance's decay vertex. Deliberately
+        does not take h0 (the resonance's own helicity): neither the LS nor
+        the helicity scheme's coupling depends on it -- only the caller's
+        Wigner-D rotation for this vertex does. This makes the h0-independence
+        explicit, and lets callers cache this result across different h0
+        values instead of recomputing it (see DecayChainNode.amplitude).
+        """
         mass, d1_mass, d2_mass = (
             np.nan_to_num(m, nan=0.0, posinf=0.0, neginf=0.0) for m in (mass, d1_mass, d2_mass)
         )
         if self.scheme == "ls":
             couplings = self.__construct_couplings(arguments)
-            coupling = self.helicity_from_ls(h0, h1, h2, couplings, arguments, mass, d1_mass, d2_mass)
+            coupling = self.helicity_from_ls(h1, h2, couplings, arguments, mass, d1_mass, d2_mass)
         elif self.scheme == "helicity":
             coupling = self.direct_helicity_coupling(arguments, h1, h2, mass, d1_mass, d2_mass)
         else:
