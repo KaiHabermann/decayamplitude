@@ -34,7 +34,50 @@ def _maybe_wrap_lineshape(lineshape):
     def _ds_wrapper(mass, l, s_spin, *params, d1_mass=None, d2_mass=None):
         return lineshape(l, s_spin, *params, s=mass**2,
                          d1_mass=d1_mass, d2_mass=d2_mass)
+    _ds_wrapper._decayamplitude_takes_mass = True
     return _ds_wrapper
+
+
+# Sentinel used to detect calls using the decayamplitude<=0.1.9 argument order,
+# where the resonance mass was not part of the signature.
+_MISSING = object()
+
+
+def _infer_lineshape_takes_mass(lineshape: Callable, n_params: int) -> bool | None:
+    """
+    Decide from the signature whether a lineshape expects the resonance mass as first argument.
+
+    decayamplitude >= 0.2.0 calls   lineshape(mass, l, s, *params, [d1_mass=..., d2_mass=...])
+    decayamplitude <= 0.1.9 called  lineshape(l, s, *params, [d1_mass=..., d2_mass=...])
+
+    Returns True (new style), False (legacy style) or None if the signature cannot tell
+    (e.g. ``def f(*args)``). Objects can opt in explicitly by setting the attribute
+    ``_decayamplitude_takes_mass``.
+    """
+    explicit = getattr(lineshape, "_decayamplitude_takes_mass", None)
+    if explicit is not None:
+        return bool(explicit)
+    try:
+        sig = inspect.signature(lineshape)
+    except (TypeError, ValueError):
+        return None
+    positional = [
+        p for p in sig.parameters.values()
+        if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        and p.name not in ("d1_mass", "d2_mass")  # always passed as keywords
+    ]
+    has_varargs = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in sig.parameters.values())
+    n_required = sum(p.default is inspect.Parameter.empty for p in positional)
+
+    def accepts(n: int) -> bool:
+        return n_required <= n and (has_varargs or len(positional) >= n)
+
+    legacy_ok, new_ok = accepts(n_params + 2), accepts(n_params + 3)
+    if new_ok and not legacy_ok:
+        return True
+    if legacy_ok and not new_ok:
+        return False
+    return None
 
 class Resonance:
     __instances = {}
@@ -45,7 +88,15 @@ class Resonance:
     def get_instance(cls, id:int) -> "Resonance":
         return cls.__instances[id]
 
-    def __init__(self, node:Node, spin:Union[Angular, int] = None, parity:int = None, quantum_numbers:QN = None, lineshape = None, argnames = None, name = None, preserve_partity=True, scheme:Literal["ls", "helicity"]="ls") -> None:
+    def __init__(self, node:Node, spin:Union[Angular, int] = None, parity:int = None, quantum_numbers:QN = None, lineshape = None, argnames = None, name = None, preserve_partity=True, scheme:Literal["ls", "helicity"]="ls", lineshape_takes_mass: bool | None = None) -> None:
+        """
+        lineshape_takes_mass: bool | None
+            Whether the lineshape is called as ``lineshape(mass, l, s, *params)`` (True, default since 0.2.0)
+            or as ``lineshape(l, s, *params)`` (False, behaviour of decayamplitude <= 0.1.9).
+            If None, this is inferred from the lineshape signature. If the signature is ambiguous
+            (e.g. ``*args``), chains constructed with momenta (legacy mode) use the old convention
+            and all other chains the new one.
+        """
         self.node = node
         self.preserve_partity = preserve_partity
         if quantum_numbers is None:
@@ -57,6 +108,7 @@ class Resonance:
         self.__daughters = None
         self.__lineshape = None
         self.__lineshape_supports_masses = False
+        self.__lineshape_takes_mass = lineshape_takes_mass
         if name is not None:
             self.__name = name
         else: 
@@ -69,6 +121,8 @@ class Resonance:
                 raise ValueError("If a lineshape is provided, the argument names must be provided as well")
             lineshape = _maybe_wrap_lineshape(lineshape)
             self.register_lineshape(lineshape, argnames)
+            if self.__lineshape_takes_mass is None:
+                self.__lineshape_takes_mass = _infer_lineshape_takes_mass(lineshape, len(argnames))
             self.__lineshape = lineshape
             self.__parameter_names = argnames
         if scheme not in ["ls", "helicity"]:
@@ -133,11 +187,32 @@ class Resonance:
         return instance_id
     
     def copy(self):
-        return Resonance(self.node, quantum_numbers=self.quantum_numbers, lineshape=self.__lineshape, argnames=self.__parameter_names, name=self.__name, preserve_partity=self.preserve_partity, scheme=self.__scheme)
+        return Resonance(self.node, quantum_numbers=self.quantum_numbers, lineshape=self.__lineshape, argnames=self.__parameter_names, name=self.__name, preserve_partity=self.preserve_partity, scheme=self.__scheme, lineshape_takes_mass=self.__lineshape_takes_mass)
 
     @property
     def lineshape(self) -> Callable:
         return self.__lineshape
+
+    @property
+    def lineshape_takes_mass(self) -> bool | None:
+        """True if the lineshape expects the resonance mass as first argument, False if not, None if undecided."""
+        return self.__lineshape_takes_mass
+
+    def _call_lineshape(self, a, b, arguments: dict, mass, d1_mass, d2_mass, legacy: bool = False):
+        """
+        Call the lineshape with either the >=0.2.0 convention ``(mass, a, b, *params)``
+        or the <=0.1.9 convention ``(a, b, *params)``.
+        """
+        takes_mass = self.__lineshape_takes_mass
+        if takes_mass is None:
+            takes_mass = not legacy
+        params = self.argument_list(arguments)
+        kwargs = self._mass_kwargs(d1_mass, d2_mass)
+        if takes_mass:
+            if mass is None:
+                raise ValueError(f"The lineshape of {self} expects the resonance mass, but none was provided.")
+            return self.lineshape(mass, a, b, *params, **kwargs)
+        return self.lineshape(a, b, *params, **kwargs)
 
     @property
     def tuple(self) -> tuple:
@@ -167,7 +242,7 @@ class Resonance:
         return self.__str__()
     
     @convert_angular
-    def helicity_from_ls(self, h0: Angular | int, h1: Angular | int, h2: Angular | int, couplings: dict[LSTuple, float], arguments: dict, mass, d1_mass, d2_mass):
+    def helicity_from_ls(self, h0: Angular | int, h1: Angular | int, h2: Angular | int, couplings: dict[LSTuple, float], arguments: dict, mass, d1_mass, d2_mass=_MISSING, *, legacy: bool = False):
         """
         This function translates from the ls basis into the helicity basis.
         The linehspae funcitons can depend on L and S.
@@ -195,14 +270,20 @@ class Resonance:
             Invariant mass of the first daughter
         d2_mass: float
             Invariant mass of the second daughter
+        legacy: bool
+            Resolve lineshapes with ambiguous signatures using the <=0.1.9 convention (no mass argument).
 
+        Note:
+            The <=0.1.9 call ``helicity_from_ls(h0, h1, h2, couplings, arguments, d1_mass, d2_mass)`` is still supported.
         """
+        if d2_mass is _MISSING:
+            mass, d1_mass, d2_mass, legacy = None, mass, d1_mass, True
         q1, q2 = self.daughter_qn
         j1, j2 = q1.angular.value2, q2.angular.value2
 
         return sum(
             coupling *
-            self.lineshape(mass, l, s, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass)) *
+            self._call_lineshape(l, s, arguments, mass, d1_mass, d2_mass, legacy) *
             (l + 1) ** 0.5 /
             (self.quantum_numbers.angular.value2 + 1) ** 0.5 *
             clebsch_gordan(j1, h1, j2, -h2, s, h1- h2) *
@@ -254,19 +335,25 @@ class Resonance:
                 }
             }
     
-    def direct_helicity_coupling(self, arguments, h1, h2, mass, d1_mass, d2_mass):
-        return arguments[self.id]["couplings"][(h1, h2)] * self.lineshape(mass, h1, h2, *self.argument_list(arguments), **self._mass_kwargs(d1_mass, d2_mass))
+    def direct_helicity_coupling(self, arguments, h1, h2, mass, d1_mass, d2_mass=_MISSING, *, legacy: bool = False):
+        if d2_mass is _MISSING:
+            # <=0.1.9 call: direct_helicity_coupling(arguments, h1, h2, d1_mass, d2_mass)
+            mass, d1_mass, d2_mass, legacy = None, mass, d1_mass, True
+        return arguments[self.id]["couplings"][(h1, h2)] * self._call_lineshape(h1, h2, arguments, mass, d1_mass, d2_mass, legacy)
 
     @convert_angular
-    def amplitude(self, h0: Angular | int, h1: Angular | int, h2: Angular | int, arguments: dict, mass, d1_mass, d2_mass):
+    def amplitude(self, h0: Angular | int, h1: Angular | int, h2: Angular | int, arguments: dict, mass, d1_mass, d2_mass=_MISSING, *, legacy: bool = False):
+        if d2_mass is _MISSING:
+            # <=0.1.9 call: amplitude(h0, h1, h2, arguments, d1_mass, d2_mass)
+            mass, d1_mass, d2_mass, legacy = None, mass, d1_mass, True
         mass, d1_mass, d2_mass = (
-            np.nan_to_num(m, nan=0.0, posinf=0.0, neginf=0.0) for m in (mass, d1_mass, d2_mass)
+            None if m is None else np.nan_to_num(m, nan=0.0, posinf=0.0, neginf=0.0) for m in (mass, d1_mass, d2_mass)
         )
         if self.scheme == "ls":
             couplings = self.__construct_couplings(arguments)
-            coupling = self.helicity_from_ls(h0, h1, h2, couplings, arguments, mass, d1_mass, d2_mass)
+            coupling = self.helicity_from_ls(h0, h1, h2, couplings, arguments, mass, d1_mass, d2_mass, legacy=legacy)
         elif self.scheme == "helicity":
-            coupling = self.direct_helicity_coupling(arguments, h1, h2, mass, d1_mass, d2_mass)
+            coupling = self.direct_helicity_coupling(arguments, h1, h2, mass, d1_mass, d2_mass, legacy=legacy)
         else:
             raise ValueError(f"Scheme must be either 'ls' or 'helicity' but is {self.scheme}")
         # particle 2 convention from Jacob-Wick is used!
