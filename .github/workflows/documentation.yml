@@ -14,6 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
+        with:
+          # decayangle-rs only ships wheels up to Python 3.12; newer versions
+          # fall back to a source build, which fails on the runner.
+          python-version: "3.12"
       - name: Install dependencies
         run: |
           pip install sphinx sphinx_rtd_theme myst_parser sphinx-mdinclude && pip install . && pip uninstall -y decayangle
