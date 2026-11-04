@@ -12,8 +12,8 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           # decayangle-rs only ships wheels up to Python 3.12; newer versions
           # fall back to a source build, which fails on the runner.
@@ -25,7 +25,7 @@ jobs:
         run: |
           sphinx-apidoc -o docs/ src && sphinx-build docs _build
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         # if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         with:
           publish_branch: gh-pages
