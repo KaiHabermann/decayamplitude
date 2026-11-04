@@ -349,6 +349,10 @@ class DecayChain(_LegacyMomentaMixin):
         ]
         self.helicity_tuples = helicities
         self.resonance_list = list(resonances.values())
+        if self.legacy:
+            # Evaluate eagerly with the bound (concrete) momenta. Lazy evaluation could happen inside
+            # a jax.jit trace, which breaks decayangle's numerical checks and would cache tracers.
+            self.helicity_angles
     
     @property
     def nodes(self):
@@ -455,6 +459,8 @@ class AlignedChain(_LegacyAlignmentMixin, DecayChain):
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
         self._wigner_rotation = wigner_rotation
         super().__init__(topology, resonances, final_state_qn, convention, momenta=momenta)
+        if self.legacy or wigner_rotation is not None:
+            self.wigner_dict  # eager, as in 0.1.9 (see DecayChain.__init__)
 
     
 class MultiChain(DecayChain):
@@ -645,3 +651,5 @@ class AlignedMultiChain(_LegacyAlignmentMixin, MultiChain):
         super().__init__(topology, final_state_qn, resonances=resonances, chains=chains, convention=convention, momenta=momenta)
         self.reference: Topology = reference if isinstance(reference, Topology) else reference.topology
         self._wigner_rotation = wigner_rotation
+        if self.legacy or wigner_rotation is not None:
+            self.wigner_dict  # eager, as in 0.1.9 (see DecayChain.__init__)
