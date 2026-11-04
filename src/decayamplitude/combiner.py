@@ -6,6 +6,10 @@ class ChainCombiner:
     """
     Combines multiple decay chains into a single amplitude.
     The first chain is the reference frame; all others are aligned to it via Wigner rotations.
+
+    If all chains were constructed with bound momenta (decayamplitude <= 0.1.9 API), the combiner
+    works in legacy mode: momenta can be omitted everywhere and the generated functions keep the
+    0.1.9 signatures (no leading ``momenta`` argument).
     """
 
     def __init__(self, chains: list[DecayChain | MultiChain]) -> None:
@@ -14,9 +18,14 @@ class ChainCombiner:
         self.aligned_chains = [
             AlignedMultiChain.from_multichain(chain, self.reference)
             if isinstance(chain, MultiChain) else
-            AlignedChain(chain.topology, chain.resonances, chain.final_state_qn, self.reference)
+            AlignedChain(chain.topology, chain.resonances, chain.final_state_qn, self.reference, momenta=chain.momenta)
             for chain in chains[1:]
         ]
+
+    @property
+    def legacy(self) -> bool:
+        """True if all chains have momenta bound at construction (decayamplitude <= 0.1.9 API)."""
+        return all(chain.legacy for chain in self.chains)
 
     @property
     def root_resonance(self):
@@ -37,8 +46,8 @@ class ChainCombiner:
 
     @property
     def combined_function(self):
-        """Returns a function f(h0, lambdas, arguments, momenta) that sums the aligned amplitudes of all chains."""
-        def f(h0, lambdas: dict, arguments: dict, momenta: dict):
+        """Returns a function f(h0, lambdas, arguments, momenta=None) that sums the aligned amplitudes of all chains."""
+        def f(h0, lambdas: dict, arguments: dict, momenta: dict | None = None):
             amplitudes = [
                 chain.aligned_matrix(h0, arguments, momenta)[tuple(lambdas[k] for k in sorted(lambdas.keys()))]
                 for chain in self.aligned_chains
@@ -48,8 +57,8 @@ class ChainCombiner:
 
     @property
     def combined_matrix(self) -> Callable:
-        """Returns a function f(h0, arguments, momenta) that sums the aligned helicity matrices of all chains."""
-        def matrix(h0, arguments: dict, momenta: dict) -> dict:
+        """Returns a function f(h0, arguments, momenta=None) that sums the aligned helicity matrices of all chains."""
+        def matrix(h0, arguments: dict, momenta: dict | None = None) -> dict:
             matrices = [chain.aligned_matrix(h0, arguments, momenta) for chain in self.aligned_chains]
             matrices.append(self.reference.matrix(h0, arguments, momenta))
             return {
@@ -74,46 +83,61 @@ class ChainCombiner:
         """
         Returns (func, param_names) where func(momenta, *params) -> per-event scalar intensity.
         Vectorize over events with jax.vmap(func, in_axes=({k: 0 for k in momenta}, None, ...)).
+
+        Legacy mode (momenta bound at construction): func(*params), "momenta" is not part of param_names.
         """
         if self.root_resonance is None:
             raise ValueError(f"The root resonance must be the same for all chains! Root = {self.reference.topology.root}.")
+        legacy = self.legacy
 
         def f(arguments: dict):
-            momenta = arguments.pop("momenta")
+            momenta = None if legacy else arguments.pop("momenta")
             return sum(
                 abs(v)**2
                 for h0 in self.root_resonance.quantum_numbers.angular.projections()
                 for v in self.combined_matrix(h0, arguments, momenta).values()
             )
 
-        names = ["momenta"] + self.resonance_params
+        names = ([] if legacy else ["momenta"]) + self.resonance_params
         return _create_function(names, ls_couplings, f, complex_couplings=complex_couplings)
 
-    def polarized_amplitude(self, ls_couplings: dict, complex_couplings: bool = True) -> tuple[Callable, list[str], list[str]]:
+    def polarized_amplitude(self, ls_couplings: dict, complex_couplings: bool | None = None) -> tuple[Callable, list[str], list[str]]:
         """
         Returns (func, helicity_names, coupling_names) where func(momenta, h0, *h_finals, *params).
+
+        Legacy mode (momenta bound at construction): func(h0, *h_finals, *params).
+        complex_couplings defaults to True, or to False in legacy mode (the 0.1.9 behaviour).
         """
+        legacy = self.legacy
+        if complex_couplings is None:
+            complex_couplings = not legacy
         sorted_final_state_nodes = sorted([n.node.value for n in self.reference.final_state_nodes])
         final_state_lambdas = sorted([f"h_{n}" for n in sorted_final_state_nodes])
 
         def fun(arguments: dict):
-            momenta = arguments.pop("momenta")
+            momenta = None if legacy else arguments.pop("momenta")
             h0 = arguments.pop("h0")
             lambdas = {n: arguments.pop(k) for k, n in zip(final_state_lambdas, sorted_final_state_nodes)}
             return self.combined_function(h0, lambdas, arguments, momenta)
 
-        names = ["momenta", "h0", *final_state_lambdas]
+        names = ([] if legacy else ["momenta"]) + ["h0", *final_state_lambdas]
         func, argnames = _create_function(names + self.resonance_params, ls_couplings, fun, complex_couplings=complex_couplings)
-        return func, ["h0", *final_state_lambdas], argnames[len(final_state_lambdas) + 2:]
+        return func, ["h0", *final_state_lambdas], argnames[len(names):]
 
     def matrix_function(self, ls_couplings: dict, complex_couplings: bool = True) -> tuple[Callable, list[str]]:
         """
         Returns (func, param_names) where func(momenta, h0, *params) -> helicity matrix dict.
+
+        Legacy mode (momenta bound at construction): func(h0, *params).
         """
+        if "h0" in self.resonance_params:
+            raise ValueError("The parameter name 'h0' is reserved for the helicity quantum number of the mother particle. Please choose another name for the resonance parameter.")
+        legacy = self.legacy
+
         def fun(arguments: dict):
-            momenta = arguments.pop("momenta")
+            momenta = None if legacy else arguments.pop("momenta")
             h0 = arguments["h0"]
             return self.combined_matrix(h0, arguments, momenta)
 
-        names = ["momenta", "h0"]
+        names = ([] if legacy else ["momenta"]) + ["h0"]
         return _create_function(names + self.resonance_params, ls_couplings, fun, complex_couplings=complex_couplings)
